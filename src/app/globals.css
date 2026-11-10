@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", "Tajawal", "Noto Kufi Arabic", ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink-950: #0a1017;
+  --color-ink-900: #111c26;
+  --color-ink-800: #1a2836;
+  --color-ink-700: #26384a;
+  --color-ink-600: #3c5266;
+
+  --color-gold-200: #fde9b8;
+  --color-gold-300: #fcd34d;
+  --color-gold-400: #febd69;
+  --color-gold-500: #f59e0b;
+  --color-gold-600: #d97706;
+
+  --color-sand-50: #f8f7f4;
+  --color-sand-100: #f1efe9;
+}
+
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f4f5f7;
+  color: #111c26;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #febd69;
+  color: #111c26;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.btn-gold {
+  background: linear-gradient(180deg, #febd69 0%, #f7a928 100%);
+  color: #111c26;
+  border: 1px solid #e08c00;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.btn-gold:hover {
+  filter: brightness(1.05);
+}
+.btn-gold:active {
+  transform: translateY(1px);
+}
+
+.btn-orange {
+  background: linear-gradient(180deg, #ffa41c 0%, #ff8f00 100%);
+  color: #111c26;
+  border: 1px solid #e07c00;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.btn-orange:hover {
+  filter: brightness(1.05);
+}
+.btn-orange:active {
+  transform: translateY(1px);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.35s ease both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-toast {
+  animation: toast-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(-100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e8ebef;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: shimmer 1.4s infinite;
+}
