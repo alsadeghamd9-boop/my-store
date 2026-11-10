@@ -1,20 +1,21 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 
-export function hashPassword(password: string): string {
+function scrypt(password: string, salt: string, keylen: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCb(password, salt, keylen, (err, key) => (err ? reject(err) : resolve(key)));
+  });
+}
+
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
-  const derived = scryptSync(password.normalize("NFKC"), salt, 64).toString("hex");
-  return `${salt}:${derived}`;
+  const key = await scrypt(password, salt, 64);
+  return `scrypt$${salt}$${key.toString("hex")}`;
 }
 
-export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(":");
-  if (!salt || !hash) return false;
-  const derived = scryptSync(password.normalize("NFKC"), salt, 64);
+export async function verifyPassword(password: string, stored: string) {
+  const [algo, salt, hash] = stored.split("$");
+  if (algo !== "scrypt" || !salt || !hash) return false;
+  const key = await scrypt(password, salt, 64);
   const expected = Buffer.from(hash, "hex");
-  if (derived.length !== expected.length) return false;
-  return timingSafeEqual(derived, expected);
-}
-
-export function newToken(): string {
-  return randomBytes(32).toString("hex");
+  return expected.length === key.length && timingSafeEqual(expected, key);
 }

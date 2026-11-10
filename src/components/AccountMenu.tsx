@@ -1,144 +1,117 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useCart } from "@/components/CartProvider";
-import {
-  BoxIcon,
-  ChevronDown,
-  DashboardIcon,
-  HeartIcon,
-  LogoutIcon,
-  UserIcon,
-} from "@/components/icons";
+import { ChevronDown, Heart, LayoutDashboard, LogOut, Package, User } from "lucide-react";
+import { api } from "@/lib/client";
 
-interface Props {
-  user: { name: string; email: string; role: string } | null;
-}
+const item =
+  "flex w-full items-center gap-3 px-4 py-2.5 text-start text-sm text-body hover:bg-paper";
 
-export default function AccountMenu({ user }: Props) {
+export default function AccountMenu({ user }: { user: { name: string; role: string } | null }) {
   const router = useRouter();
-  const { refresh } = useCart();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  useEffect(() => setOpen(false), [pathname]);
+
   useEffect(() => {
-    function onClick(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (!user) {
+    return (
+      <Link
+        href="/login"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white hover:bg-white/10"
+      >
+        <User size={20} aria-hidden="true" />
+        <span>تسجيل الدخول</span>
+      </Link>
+    );
+  }
 
   async function logout() {
     setBusy(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      await refresh();
-      setOpen(false);
-      router.push("/");
-      router.refresh();
-    } finally {
+    const res = await api("/api/auth/logout", "POST");
+    if (!res.ok) {
       setBusy(false);
+      router.refresh();
+      return;
     }
+    // Full reload so every cached view forgets the signed-in shopper.
+    window.location.assign("/");
   }
 
-  const firstName = user?.name.split(" ")[0] ?? "";
+  const firstName = user.name.trim().split(/\s+/)[0];
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs leading-tight transition hover:outline hover:outline-1 hover:outline-white/40"
+        aria-haspopup="true"
         aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white hover:bg-white/10"
       >
-        <UserIcon width={20} height={20} className="text-gold-400" />
-        <span className="hidden text-right sm:block">
-          <span className="block text-white/70">
-            {user ? `مرحبًا، ${firstName}` : "مرحبًا بك"}
-          </span>
-          <span className="flex items-center gap-0.5 font-bold">
-            {user ? "حسابك" : "سجّل الدخول"}
-            <ChevronDown width={12} height={12} />
-          </span>
-        </span>
+        <User size={20} aria-hidden="true" />
+        <span className="max-w-28 truncate">مرحباً، {firstName}</span>
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
-        <div className="card absolute left-0 top-11 z-50 w-60 p-2 text-ink-900 animate-fade-up">
-          {!user ? (
-            <>
-              <a
-                href="/account"
-                className="btn-gold block rounded-lg px-3 py-2 text-center text-sm font-bold"
-              >
-                تسجيل الدخول
-              </a>
-              <p className="px-2 py-2 text-xs text-slate-500">
-                عميل جديد؟{" "}
-                <a href="/account?mode=register" className="font-bold text-gold-600 hover:underline">
-                  أنشئ حسابك
-                </a>
-              </p>
-              <div className="my-1 border-t border-slate-100" />
-              <MenuLink href="/orders" icon={<BoxIcon width={16} height={16} />} label="طلباتي" />
-              <MenuLink href="/wishlist" icon={<HeartIcon width={16} height={16} />} label="المفضلة" />
-            </>
-          ) : (
-            <>
-              <div className="px-2 pb-2">
-                <p className="truncate text-sm font-bold">{user.name}</p>
-                <p className="truncate text-xs text-slate-500" dir="ltr">
-                  {user.email}
-                </p>
-              </div>
-              <div className="my-1 border-t border-slate-100" />
-              <MenuLink href="/orders" icon={<BoxIcon width={16} height={16} />} label="طلباتي" />
-              <MenuLink href="/wishlist" icon={<HeartIcon width={16} height={16} />} label="المفضلة" />
-              <MenuLink href="/account" icon={<UserIcon width={16} height={16} />} label="بياناتي" />
-              {user.role === "admin" && (
-                <MenuLink
-                  href="/admin"
-                  icon={<DashboardIcon width={16} height={16} />}
-                  label="لوحة التحكم"
-                />
-              )}
-              <div className="my-1 border-t border-slate-100" />
-              <button
-                type="button"
-                onClick={logout}
-                disabled={busy}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
-              >
-                <LogoutIcon width={16} height={16} />
-                {busy ? "جارٍ الخروج..." : "تسجيل الخروج"}
-              </button>
-            </>
+        <div className="on-light absolute end-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-line bg-white py-1.5 text-body shadow-[0_20px_50px_-12px_rgba(6,25,28,0.35)]">
+          <p className="truncate border-b border-line px-4 pt-1.5 pb-2.5 text-sm font-semibold text-ink-950">
+            {user.name}
+          </p>
+          <Link href="/account" className={item}>
+            <User size={17} aria-hidden="true" className="text-muted" />
+            حسابي
+          </Link>
+          <Link href="/orders" className={item}>
+            <Package size={17} aria-hidden="true" className="text-muted" />
+            طلباتي
+          </Link>
+          <Link href="/wishlist" className={item}>
+            <Heart size={17} aria-hidden="true" className="text-muted" />
+            المفضلة
+          </Link>
+          {user.role === "admin" && (
+            <Link href="/admin" className={item}>
+              <LayoutDashboard size={17} aria-hidden="true" className="text-muted" />
+              لوحة التحكم
+            </Link>
           )}
+          <button
+            type="button"
+            onClick={logout}
+            disabled={busy}
+            className={`${item} border-t border-line disabled:opacity-60`}
+          >
+            <LogOut size={17} aria-hidden="true" className="text-muted" />
+            {busy ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
+          </button>
         </div>
       )}
     </div>
-  );
-}
-
-function MenuLink({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <a
-      href={href}
-      className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-    >
-      <span className="text-slate-500">{icon}</span>
-      {label}
-    </a>
   );
 }

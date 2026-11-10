@@ -1,32 +1,57 @@
-import { ensureBootstrap } from "@/db/bootstrap";
-import { addReview, getProductById, listReviews } from "@/db/queries";
-import { ensureSession, getCurrentUser } from "@/lib/auth";
-import { fail, ok, readJson, toNumber, toStringValue } from "@/lib/api";
+import { and, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { products, reviews } from "@/db/schema";
+import { BAD_REQUEST, fail, int, ok, readJson, str } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
+import { recomputeRating } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
-
+/** Create or update the signed-in shopper's review for a product. */
 export async function POST(req: Request) {
-  await ensureBootstrap();
-  await ensureSession();
-  const user = await getCurrentUser();
   const body = await readJson(req);
+  const productId = body ? int(body.productId) : null;
+  if (!body || !productId) return fail(BAD_REQUEST);
 
-  const productId = toNumber(body.productId);
-  const rating = Math.round(toNumber(body.rating) ?? 0);
-  const title = toStringValue(body.title) || null;
-  const bodyText = toStringValue(body.body);
-  const author = user?.name || toStringValue(body.author);
+  const user = await getCurrentUser();
+  if (!user) return fail("سجّل الدخول لكتابة تقييم.", 401);
 
-  if (!productId) return fail("المنتج مطلوب");
-  if (rating < 1 || rating > 5) return fail("التقييم يجب أن يكون بين 1 و 5");
-  if (bodyText.length < 3) return fail("نص المراجعة مطلوب");
-  if (author.length < 2) return fail("الاسم مطلوب");
+  const rating = int(body.rating);
+  const title = str(body.title, 80);
+  const text = str(body.body, 1000);
+  const fields: Record<string, string> = {};
+  if (!rating || rating < 1 || rating > 5) fields.rating = "اختر عدد النجوم من 1 إلى 5.";
+  if (text.length < 10) fields.body = "اكتب رأيك في 10 أحرف على الأقل.";
+  if (Object.keys(fields).length) return fail("راجع الحقول المشار إليها.", 422, { fields });
 
-  const product = await getProductById(productId);
-  if (!product) return fail("المنتج غير موجود", 404);
+  const [product] = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.active, true)))
+    .limit(1);
+  if (!product) return fail("هذا المنتج لم يعد متوفراً.", 404);
 
-  await addReview({ productId, userId: user?.id ?? null, author, rating, title, body: bodyText });
-  const reviews = await listReviews(productId);
+  await db
+    .insert(reviews)
+    .values({ productId, userId: user.id, rating: rating!, title, body: text })
+    .onConflictDoUpdate({
+      target: [reviews.productId, reviews.userId],
+      set: { rating: rating!, title, body: text, createdAt: new Date() },
+    });
+  await recomputeRating(productId);
+  return ok({ ok: true });
+}
 
-  return ok({ reviews }, { status: 201 });
+/** Delete the signed-in shopper's own review. */
+export async function DELETE(req: Request) {
+  const body = await readJson(req);
+  const productId = body ? int(body.productId) : null;
+  if (!body || !productId) return fail(BAD_REQUEST);
+
+  const user = await getCurrentUser();
+  if (!user) return fail("سجّل الدخول أولاً.", 401);
+
+  await db
+    .delete(reviews)
+    .where(and(eq(reviews.productId, productId), eq(reviews.userId, user.id)));
+  await recomputeRating(productId);
+  return ok({ ok: true });
 }

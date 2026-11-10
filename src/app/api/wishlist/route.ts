@@ -1,46 +1,29 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { ensureBootstrap } from "@/db/bootstrap";
-import { wishlistItems } from "@/db/schema";
-import { ensureSession } from "@/lib/auth";
-import { getWishlist } from "@/db/queries";
-import { fail, ok, readJson, toNumber } from "@/lib/api";
+import { products, wishlistItems } from "@/db/schema";
+import { BAD_REQUEST, fail, int, ok, readJson } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
-
-export async function GET() {
-  const { id: sessionId } = await ensureSession();
-  const items = await getWishlist(sessionId);
-  return ok({ items });
-}
-
+/** Toggle a product in the signed-in shopper's wishlist. */
 export async function POST(req: Request) {
-  await ensureBootstrap();
-  const { id: sessionId } = await ensureSession();
   const body = await readJson(req);
-  const productId = toNumber(body.productId);
-  if (!productId) return fail("معرف المنتج مطلوب");
+  const productId = body ? int(body.productId) : null;
+  if (!body || !productId) return fail(BAD_REQUEST);
 
-  await db
-    .insert(wishlistItems)
-    .values({ sessionId, productId })
-    .onConflictDoNothing();
+  const user = await getCurrentUser();
+  if (!user) return fail("سجّل الدخول لحفظ المنتجات في المفضلة.", 401);
 
-  const items = await getWishlist(sessionId);
-  return ok({ items });
-}
+  const where = and(eq(wishlistItems.userId, user.id), eq(wishlistItems.productId, productId));
+  const removed = await db.delete(wishlistItems).where(where).returning({ id: wishlistItems.productId });
+  if (removed.length) return ok({ saved: false });
 
-export async function DELETE(req: Request) {
-  await ensureBootstrap();
-  const { id: sessionId } = await ensureSession();
-  const body = await readJson(req);
-  const productId = toNumber(body.productId) ?? toNumber(new URL(req.url).searchParams.get("productId"));
-  if (!productId) return fail("معرف المنتج مطلوب");
+  const [product] = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.id, productId), eq(products.active, true)))
+    .limit(1);
+  if (!product) return fail("هذا المنتج لم يعد متوفراً.", 404);
 
-  await db
-    .delete(wishlistItems)
-    .where(and(eq(wishlistItems.sessionId, sessionId), eq(wishlistItems.productId, productId)));
-
-  const items = await getWishlist(sessionId);
-  return ok({ items });
+  await db.insert(wishlistItems).values({ userId: user.id, productId }).onConflictDoNothing();
+  return ok({ saved: true });
 }

@@ -1,44 +1,48 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { ensureBootstrap } from "@/db/bootstrap";
 import { users } from "@/db/schema";
-import { signInSession } from "@/lib/auth";
-import { fail, ok, readJson, toStringValue } from "@/lib/api";
-import { hashPassword } from "@/lib/password";
+import { BAD_REQUEST, clientIp, fail, ok, rateLimit, readJson, str } from "@/lib/api";
+import { createSession, hashPassword } from "@/lib/auth";
+import { mergeGuestCart } from "@/lib/cart";
+import { ensureSeeded } from "@/lib/seed";
 
-export const dynamic = "force-dynamic";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export async function POST(req: Request) {
-  await ensureBootstrap();
   const body = await readJson(req);
-  const name = toStringValue(body.name);
-  const email = toStringValue(body.email).toLowerCase();
+  if (!body) return fail(BAD_REQUEST);
+  if (!rateLimit(`register:${clientIp(req)}`, 15, 10 * 60_000)) {
+    return fail("محاولات كثيرة. انتظر بضع دقائق ثم حاول مجدداً.", 429);
+  }
+  await ensureSeeded();
+
+  const name = str(body.name, 60);
+  const email = str(body.email, 160).toLowerCase();
   const password = typeof body.password === "string" ? body.password : "";
-  const phone = toStringValue(body.phone) || null;
-  const city = toStringValue(body.city) || null;
-  const address = toStringValue(body.address) || null;
 
-  if (name.length < 2) return fail("الاسم يجب أن يكون حرفين على الأقل");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("البريد الإلكتروني غير صحيح");
-  if (password.length < 6) return fail("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+  const fields: Record<string, string> = {};
+  if (name.length < 2) fields.name = "اكتب اسمك (حرفان على الأقل).";
+  if (!EMAIL_RE.test(email)) fields.email = "اكتب بريداً إلكترونياً صحيحاً، مثل name@example.com.";
+  if (password.length < 8) fields.password = "كلمة المرور يجب ألا تقل عن 8 أحرف.";
+  else if (password.length > 200) fields.password = "كلمة المرور طويلة جداً.";
+  if (Object.keys(fields).length) return fail("راجع الحقول المشار إليها.", 422, { fields });
 
+  const taken = { fields: { email: "هذا البريد مسجّل مسبقاً." } };
   const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
-  if (existing.length > 0) return fail("هذا البريد الإلكتروني مسجّل بالفعل", 409);
+  if (existing.length) return fail("هذا البريد مسجّل لدينا مسبقاً. جرّب تسجيل الدخول.", 409, taken);
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      name,
-      email,
-      phone,
-      city,
-      address,
-      passwordHash: hashPassword(password),
-      role: "customer",
-    })
-    .returning({ id: users.id, name: users.name, email: users.email, role: users.role, phone: users.phone, city: users.city, address: users.address });
+  let userId: number;
+  try {
+    const [user] = await db
+      .insert(users)
+      .values({ name, email, passwordHash: await hashPassword(password) })
+      .returning({ id: users.id });
+    userId = user.id;
+  } catch {
+    return fail("هذا البريد مسجّل لدينا مسبقاً. جرّب تسجيل الدخول.", 409, taken);
+  }
 
-  await signInSession(user.id);
-
-  return ok({ user });
+  await createSession(userId);
+  await mergeGuestCart(userId);
+  return ok({ ok: true });
 }

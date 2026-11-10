@@ -1,108 +1,100 @@
-import BackToTop from "@/components/BackToTop";
-import { ReturnIcon, ShieldIcon, TruckIcon, SparkIcon } from "@/components/icons";
+import Link from "next/link";
+import { ArrowUp } from "lucide-react";
+import Logo from "@/components/Logo";
+import { getCategories } from "@/lib/queries";
 
-const columns = [
-  {
-    title: "تعرّف علينا",
-    links: [
-      { label: "من نحن", href: "/products?sort=bestselling" },
-      { label: "الوظائف", href: "/products?sort=newest" },
-      { label: "الاستدامة", href: "/products?category=home-kitchen" },
-      { label: "الأخبار", href: "/products?sort=discount" },
-    ],
-  },
-  {
-    title: "تسوّق حسب القسم",
-    links: [
-      { label: "الإلكترونيات", href: "/products?category=electronics" },
-      { label: "الأزياء", href: "/products?category=fashion" },
-      { label: "المنزل والمطبخ", href: "/products?category=home-kitchen" },
-      { label: "الجمال والعناية", href: "/products?category=beauty" },
-      { label: "الكتب والمكتبة", href: "/products?category=books" },
-    ],
-  },
-  {
-    title: "خدمة العملاء",
-    links: [
-      { label: "مركز المساعدة", href: "/orders" },
-      { label: "تتبع طلبك", href: "/orders" },
-      { label: "الشحن والتوصيل", href: "/products?perPage=24" },
-      { label: "الإرجاع والاستبدال", href: "/orders" },
-    ],
-  },
-  {
-    title: "حسابي",
-    links: [
-      { label: "تسجيل الدخول", href: "/account" },
-      { label: "طلباتي", href: "/orders" },
-      { label: "المفضلة", href: "/wishlist" },
-      { label: "سلة التسوق", href: "/cart" },
-    ],
-  },
-];
+const link = "text-ink-100 hover:text-white hover:underline";
 
-const perks = [
-  { icon: TruckIcon, title: "شحن سريع", text: "توصيل خلال 24-48 ساعة لجميع المدن" },
-  { icon: ReturnIcon, title: "إرجاع مجاني", text: "خلال 15 يومًا من الاستلام" },
-  { icon: ShieldIcon, title: "دفع آمن", text: "حماية كاملة لبياناتك وعملياتك" },
-  { icon: SparkIcon, title: "عروض يومية", text: "خصومات حتى 50% على آلاف المنتجات" },
-];
-
-export default function Footer() {
+export default async function Footer() {
+  const cats = await getCategories();
   return (
-    <footer className="mt-12">
-      <div className="bg-white">
-        <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-8 sm:grid-cols-2 lg:grid-cols-4">
-          {perks.map((perk) => (
-            <div key={perk.title} className="flex items-start gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gold-200/60 text-gold-600">
-                <perk.icon width={22} height={22} />
-              </span>
-              <span>
-                <span className="block text-sm font-extrabold text-ink-900">{perk.title}</span>
-                <span className="block text-xs text-slate-500">{perk.text}</span>
-              </span>
-            </div>
-          ))}
+    <footer className="on-dark mt-14 bg-ink-900 text-ink-100">
+      <a
+        href="#top"
+        className="flex items-center justify-center gap-2 bg-ink-800 py-3 text-sm text-white hover:bg-ink-700"
+      >
+        <ArrowUp size={15} aria-hidden="true" />
+        العودة إلى الأعلى
+      </a>
+
+      <div className="container-page grid gap-x-8 gap-y-10 py-10 sm:grid-cols-2 lg:grid-cols-[1.3fr_1.4fr_1fr_1fr]">
+        <div>
+          <Logo />
+          <p className="mt-4 max-w-xs text-sm leading-relaxed">
+            متجر واحد للإلكترونيات والأزياء ومستلزمات البيت، بتوصيل سريع ودفع عند الاستلام وإرجاع
+            سهل.
+          </p>
         </div>
+
+        <nav aria-label="تسوّق حسب القسم">
+          <h2 className="text-sm font-bold text-white">تسوّق حسب القسم</h2>
+          <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+            {cats.map((c) => (
+              <li key={c.id}>
+                <Link href={`/search?category=${c.slug}`} className={link}>
+                  {c.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <nav aria-label="حسابك">
+          <h2 className="text-sm font-bold text-white">حسابك</h2>
+          <ul className="mt-4 space-y-2.5 text-sm">
+            <li>
+              <Link href="/account" className={link}>
+                حسابي
+              </Link>
+            </li>
+            <li>
+              <Link href="/orders" className={link}>
+                طلباتي
+              </Link>
+            </li>
+            <li>
+              <Link href="/wishlist" className={link}>
+                المفضلة
+              </Link>
+            </li>
+            <li>
+              <Link href="/cart" className={link}>
+                سلة التسوق
+              </Link>
+            </li>
+          </ul>
+        </nav>
+
+        <nav aria-label="المساعدة">
+          <h2 className="text-sm font-bold text-white">المساعدة</h2>
+          <ul className="mt-4 space-y-2.5 text-sm">
+            <li>
+              <Link href="/help#shipping" className={link}>
+                الشحن والتوصيل
+              </Link>
+            </li>
+            <li>
+              <Link href="/help#payment" className={link}>
+                طرق الدفع
+              </Link>
+            </li>
+            <li>
+              <Link href="/help#returns" className={link}>
+                الإرجاع والاستبدال
+              </Link>
+            </li>
+            <li>
+              <Link href="/help#account" className={link}>
+                الحساب والطلبات
+              </Link>
+            </li>
+          </ul>
+        </nav>
       </div>
 
-      <div className="bg-ink-900 text-white">
-        <BackToTop />
-        <div className="mx-auto grid max-w-[1440px] gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
-          {columns.map((column) => (
-            <div key={column.title}>
-              <h3 className="mb-3 text-sm font-extrabold text-gold-300">{column.title}</h3>
-              <ul className="space-y-2 text-sm text-white/70">
-                {column.links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href} className="transition hover:text-white hover:underline">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="border-t border-white/10">
-          <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-white/60 sm:flex-row">
-            <p className="flex items-center gap-2">
-              <span className="text-base font-black text-white">
-                سوق<span className="text-gold-400">.sa</span>
-              </span>
-              © {new Date().getFullYear()} جميع الحقوق محفوظة
-            </p>
-            <p className="flex flex-wrap items-center justify-center gap-3">
-              <span className="rounded bg-white/10 px-2 py-1 font-bold">Visa</span>
-              <span className="rounded bg-white/10 px-2 py-1 font-bold">Mastercard</span>
-              <span className="rounded bg-white/10 px-2 py-1 font-bold">مدى</span>
-              <span className="rounded bg-white/10 px-2 py-1 font-bold">Apple Pay</span>
-              <span className="rounded bg-white/10 px-2 py-1 font-bold">الدفع عند الاستلام</span>
-            </p>
-          </div>
-        </div>
-      </div>
+      <p className="border-t border-white/10 px-3 py-4 text-center text-xs">
+        © {new Date().getFullYear()} قافلة. الأسعار بالريال السعودي وتشمل ضريبة القيمة المضافة.
+      </p>
     </footer>
   );
 }

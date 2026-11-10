@@ -1,230 +1,264 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getCurrentUser, requireAdmin } from "@/lib/auth";
-import { getOrderWithItems } from "@/db/queries";
-import ReorderButton from "@/components/ReorderButton";
-import { BoxIcon, CheckIcon, PinIcon, ShieldIcon, TruckIcon } from "@/components/icons";
-import {
-  formatDateTime,
-  formatPrice,
-  orderStatusLabel,
-  orderStatusTone,
-  ORDER_STATUSES,
-} from "@/lib/format";
+import { notFound, redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
+import { Banknote, Check, ChevronRight, CircleCheck, CircleX, MapPin } from "lucide-react";
+import { OrderStatusBadge } from "@/components/Badges";
+import CancelOrderButton from "@/components/CancelOrderButton";
+import { Money } from "@/components/Price";
+import SmartImage from "@/components/SmartImage";
+import { db } from "@/db";
+import { orderItems, orders, products } from "@/db/schema";
+import { getCurrentUser } from "@/lib/auth";
+import { STATUS_HINTS, STATUS_LABELS, isOrderStatus } from "@/lib/constants";
+import { formatDate } from "@/lib/format";
 
-export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "تفاصيل الطلب" };
 
-interface Props {
+const STEPS = ["pending", "processing", "shipped", "delivered"] as const;
+
+type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
+};
 
-export const metadata: Metadata = { title: "تفاصيل الطلب | سوق" };
-
-const STEPS = ["pending", "confirmed", "shipped", "delivered"];
-
-export default async function OrderDetailPage({ params, searchParams }: Props) {
-  const [{ id }, sp] = await Promise.all([params, searchParams]);
-  const orderId = Number(id);
-  if (!Number.isFinite(orderId) || orderId <= 0) notFound();
-
-  const data = await getOrderWithItems(orderId);
-  if (!data) notFound();
+export default async function OrderPage({ params, searchParams }: Props) {
+  const { id: rawId } = await params;
+  const sp = await searchParams;
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) notFound();
 
   const user = await getCurrentUser();
-  const admin = await requireAdmin();
-  const owner = user && data.order.userId === user.id;
-  if (!admin && !owner && data.order.userId) notFound();
+  if (!user) redirect(`/login?next=/orders/${id}`);
 
-  const placed = sp.placed === "1";
-  const status = data.order.status;
-  const activeStep = ORDER_STATUSES[status]?.step ?? 0;
+  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+  if (!order || (order.userId !== user.id && user.role !== "admin")) notFound();
+
+  const lines = await db
+    .select({
+      id: orderItems.id,
+      title: orderItems.title,
+      image: orderItems.image,
+      price: orderItems.price,
+      quantity: orderItems.quantity,
+      slug: products.slug,
+      active: products.active,
+    })
+    .from(orderItems)
+    .leftJoin(products, eq(products.id, orderItems.productId))
+    .where(eq(orderItems.orderId, id))
+    .orderBy(orderItems.id);
+
+  const status = isOrderStatus(order.status) ? order.status : "pending";
   const cancelled = status === "cancelled";
+  const stepIndex = STEPS.indexOf(status as (typeof STEPS)[number]);
+  const canCancel = (status === "pending" || status === "processing") && order.userId === user.id;
+  const isOwner = order.userId === user.id;
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-4 px-3 py-4 sm:px-4 sm:py-6">
-      {placed && (
-        <div className="card flex items-center gap-3 border-emerald-200 bg-emerald-50 p-4">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
-            <CheckIcon width={22} height={22} />
-          </span>
+    <div className="container-page py-5">
+      <Link
+        href={isOwner ? "/orders" : "/admin/orders"}
+        className="inline-flex items-center gap-1 rounded-md text-sm font-semibold text-ink-700 hover:underline"
+      >
+        <ChevronRight size={16} aria-hidden="true" />
+        {isOwner ? "كل طلباتي" : "العودة إلى إدارة الطلبات"}
+      </Link>
+
+      {sp.placed === "1" && isOwner && !cancelled && (
+        <div
+          role="status"
+          className="mt-4 flex items-start gap-3 rounded-2xl border border-express/30 bg-white p-4 sm:p-5"
+        >
+          <CircleCheck size={26} aria-hidden="true" className="mt-0.5 shrink-0 text-express" />
           <div>
-            <h2 className="font-extrabold text-emerald-900">تم استلام طلبك بنجاح 🎉</h2>
-            <p className="text-sm text-emerald-800">
-              رقم الطلب <span dir="ltr" className="font-black">{data.order.reference}</span> — سنرسل
-              لك تحديثات الشحن أولًا بأول.
+            <p className="font-display text-lg font-bold text-ink-950">شكراً لك! استلمنا طلبك.</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
+              سنبدأ تجهيزه الآن، ويمكنك متابعة حالته من هذه الصفحة في أي وقت. المبلغ المطلوب عند
+              الاستلام <Money value={order.total} className="font-semibold text-body" />.
             </p>
           </div>
         </div>
       )}
 
-      <div className="card p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <nav className="mb-1 flex items-center gap-1.5 text-xs text-slate-500">
-              <Link href="/orders" className="hover:text-gold-600">
-                طلباتي
-              </Link>
-              <span>/</span>
-              <span className="font-bold text-ink-800" dir="ltr">
-                {data.order.reference}
-              </span>
-            </nav>
-            <h1 className="text-2xl font-black text-ink-900">تفاصيل الطلب</h1>
-            <p className="mt-1 text-sm text-slate-500">تم الطلب في {formatDateTime(data.order.createdAt)}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`rounded-full px-3 py-1.5 text-sm font-black ${orderStatusTone(status)}`}>
-              {orderStatusLabel(status)}
-            </span>
-            <ReorderButton
-              items={data.items.map((item) => ({ productId: item.productId, quantity: item.quantity }))}
-            />
-          </div>
-        </div>
-
-        {!cancelled && (
-          <ol className="mt-6 grid gap-3 sm:grid-cols-4">
-            {STEPS.map((key, index) => {
-              const reached = activeStep >= index + 1;
-              const meta = ORDER_STATUSES[key];
-              return (
-                <li key={key} className="relative">
-                  <div
-                    className={`flex items-center gap-2 rounded-xl border p-3 transition ${
-                      reached ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50/60"
-                    }`}
-                  >
-                    <span
-                      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-black ${
-                        reached ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-500"
-                      }`}
-                    >
-                      {reached ? <CheckIcon width={16} height={16} /> : index + 1}
-                    </span>
-                    <span>
-                      <span className={`block text-sm font-extrabold ${reached ? "text-emerald-900" : "text-slate-500"}`}>
-                        {meta.label}
-                      </span>
-                      <span className="block text-[11px] text-slate-500">
-                        {reached ? "مكتمل" : "قادم"}
-                      </span>
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-
-        {cancelled && (
-          <p className="mt-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">
-            تم إلغاء هذا الطلب. إذا كان لديك أي استفسار تواصل مع خدمة العملاء.
-          </p>
-        )}
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 className="text-2xl font-bold text-ink-950">
+          طلب رقم <span dir="ltr">{order.number}</span>
+        </h1>
+        <OrderStatusBadge status={order.status} />
       </div>
+      <p className="mt-1 text-sm text-muted">تم الطلب في {formatDate(order.createdAt)}</p>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-        <div className="card overflow-hidden">
-          <h2 className="border-b border-slate-100 bg-slate-50/60 px-4 py-3 font-extrabold text-ink-900">
-            المنتجات ({data.items.length})
-          </h2>
-          <ul className="divide-y divide-slate-100">
-            {data.items.map((item) => (
-              <li key={item.id} className="flex items-center gap-3 p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.image ?? ""}
-                  alt=""
-                  className="h-16 w-16 shrink-0 rounded-lg bg-slate-50 object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-sm font-bold text-ink-900">{item.title}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {formatPrice(item.price)} × {item.quantity}
-                  </p>
-                </div>
-                <span className="shrink-0 text-sm font-black">
-                  {formatPrice(item.price * item.quantity)}
-                </span>
-              </li>
-            ))}
-          </ul>
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-5">
+          <section className="card p-4 sm:p-6" aria-labelledby="track-title">
+            <h2 id="track-title" className="text-lg font-bold text-ink-950">
+              حالة الطلب
+            </h2>
+            {cancelled ? (
+              <p className="mt-3 flex items-start gap-2.5 text-sm leading-relaxed text-body">
+                <CircleX size={19} aria-hidden="true" className="mt-0.5 shrink-0 text-deal" />
+                {STATUS_HINTS.cancelled}
+              </p>
+            ) : (
+              <>
+                <ol className="mt-5 flex">
+                  {STEPS.map((step, i) => {
+                    const done = i < stepIndex || status === "delivered";
+                    const current = i === stepIndex && status !== "delivered";
+                    return (
+                      <li
+                        key={step}
+                        aria-current={current ? "step" : undefined}
+                        className="relative flex flex-1 flex-col items-center text-center"
+                      >
+                        {i > 0 && (
+                          <span
+                            aria-hidden="true"
+                            className={`absolute end-1/2 top-4 h-0.5 w-full -translate-y-1/2 ${
+                              i <= stepIndex ? "bg-express" : "bg-line"
+                            }`}
+                          />
+                        )}
+                        <span
+                          className={`relative z-[1] grid h-8 w-8 place-items-center rounded-full text-sm font-bold ${
+                            done
+                              ? "bg-express text-white"
+                              : current
+                                ? "bg-saffron-500 text-ink-950 ring-4 ring-saffron-100"
+                                : "border border-line bg-white text-muted"
+                          }`}
+                        >
+                          {done ? <Check size={16} strokeWidth={3} aria-hidden="true" /> : i + 1}
+                        </span>
+                        <span
+                          className={`mt-2 px-1 text-xs sm:text-sm ${
+                            done || current ? "font-semibold text-ink-950" : "text-muted"
+                          }`}
+                        >
+                          {STATUS_LABELS[step]}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ol>
+                <p className="mt-5 rounded-xl bg-paper px-4 py-3 text-sm leading-relaxed text-body">
+                  {STATUS_HINTS[status]}
+                </p>
+              </>
+            )}
+            {canCancel && (
+              <div className="mt-4 border-t border-line pt-4">
+                <CancelOrderButton orderId={order.id} />
+              </div>
+            )}
+          </section>
+
+          <section className="card" aria-labelledby="items-title">
+            <h2 id="items-title" className="px-4 pt-4 text-lg font-bold text-ink-950 sm:px-6 sm:pt-6">
+              المنتجات
+            </h2>
+            <ul className="mt-2 divide-y divide-line">
+              {lines.map((l) => (
+                <li key={l.id} className="flex items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6">
+                  <SmartImage
+                    src={l.image}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-xl bg-paper object-cover sm:h-20 sm:w-20"
+                  />
+                  <div className="min-w-0 flex-1">
+                    {l.slug && l.active ? (
+                      <Link
+                        href={`/product/${l.slug}`}
+                        className="line-clamp-2 rounded text-sm leading-snug font-medium text-body hover:text-ink-700 hover:underline"
+                      >
+                        {l.title}
+                      </Link>
+                    ) : (
+                      <p className="line-clamp-2 text-sm leading-snug font-medium text-body">
+                        {l.title}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-muted">
+                      الكمية: {l.quantity} · <Money value={l.price} /> للقطعة
+                    </p>
+                    {status === "delivered" && isOwner && l.slug && l.active && (
+                      <Link
+                        href={`/product/${l.slug}#reviews`}
+                        className="mt-1 inline-block rounded text-xs font-semibold text-ink-700 hover:underline"
+                      >
+                        قيّم المنتج
+                      </Link>
+                    )}
+                  </div>
+                  <Money
+                    value={l.price * l.quantity}
+                    className="text-sm font-semibold text-ink-950"
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
 
-        <div className="space-y-4">
-          <div className="card p-4">
-            <h2 className="mb-3 font-extrabold text-ink-900">ملخص الدفع</h2>
-            <dl className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-slate-600">المجموع الفرعي</dt>
-                <dd className="font-bold">{formatPrice(data.order.subtotal)}</dd>
-              </div>
-              {data.order.discount > 0 && (
-                <div className="flex justify-between text-emerald-700">
-                  <dt>الخصم</dt>
-                  <dd className="font-bold">− {formatPrice(data.order.discount)}</dd>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <dt className="text-slate-600">الشحن</dt>
-                <dd className="font-bold">
-                  {data.order.shipping === 0 ? "مجاني" : formatPrice(data.order.shipping)}
+        <aside className="space-y-5 lg:sticky lg:top-4 lg:self-start">
+          <section className="card p-5" aria-labelledby="sum-title">
+            <h2 id="sum-title" className="text-lg font-bold text-ink-950">
+              ملخص الدفع
+            </h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted">المجموع الفرعي</dt>
+                <dd>
+                  <Money value={order.subtotal} />
                 </dd>
               </div>
-              <div className="flex justify-between border-t border-dashed border-slate-200 pt-2">
-                <dt className="font-extrabold">الإجمالي</dt>
-                <dd className="text-lg font-black text-rose-600">{formatPrice(data.order.total)}</dd>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-muted">التوصيل</dt>
+                <dd>
+                  {order.shippingFee === 0 ? (
+                    <span className="font-semibold text-express">مجاني</span>
+                  ) : (
+                    <Money value={order.shippingFee} />
+                  )}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-line pt-3 text-base">
+                <dt className="font-bold text-ink-950">الإجمالي</dt>
+                <dd>
+                  <Money value={order.total} className="font-display font-bold text-ink-950" />
+                </dd>
               </div>
             </dl>
-            <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
-              طريقة الدفع:{" "}
-              {data.order.paymentMethod === "card" ? "بطاقة ائتمانية / مدى" : "الدفع عند الاستلام"}
+            <p className="mt-4 flex items-center gap-2 text-sm text-body">
+              <Banknote size={18} aria-hidden="true" className="shrink-0 text-ink-700" />
+              الدفع عند الاستلام
             </p>
-          </div>
+          </section>
 
-          <div className="card p-4">
-            <h2 className="mb-3 flex items-center gap-2 font-extrabold text-ink-900">
-              <PinIcon width={17} height={17} className="text-gold-600" />
+          <section className="card p-5" aria-labelledby="addr-title">
+            <h2 id="addr-title" className="flex items-center gap-2 text-lg font-bold text-ink-950">
+              <MapPin size={19} aria-hidden="true" />
               عنوان التوصيل
             </h2>
-            <p className="text-sm font-bold text-ink-900">{data.order.fullName}</p>
-            <p className="mt-1 text-sm text-slate-600">{data.order.address}</p>
-            <p className="text-sm text-slate-600">{data.order.city}</p>
-            <p className="mt-1 text-sm text-slate-600" dir="ltr">
-              {data.order.phone}
-            </p>
-            {data.order.email && (
-              <p className="text-sm text-slate-600" dir="ltr">
-                {data.order.email}
+            <address className="mt-3 space-y-1 text-sm leading-relaxed text-body not-italic">
+              <p className="font-semibold text-ink-950">{order.shipName}</p>
+              <p>
+                {order.shipStreet}، {order.shipDistrict}
+              </p>
+              <p>{order.shipCity}</p>
+              <p dir="ltr" className="text-end">
+                {order.shipPhone}
+              </p>
+            </address>
+            {order.notes && (
+              <p className="mt-3 rounded-xl bg-paper px-3 py-2 text-sm text-body">
+                <span className="font-semibold">ملاحظات: </span>
+                {order.notes}
               </p>
             )}
-            {data.order.notes && (
-              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                ملاحظات: {data.order.notes}
-              </p>
-            )}
-          </div>
-
-          <div className="card space-y-2 p-4 text-sm text-slate-600">
-            <p className="flex items-center gap-2 font-extrabold text-ink-900">
-              <BoxIcon width={17} height={17} className="text-gold-600" />
-              خدمة ما بعد البيع
-            </p>
-            <p className="flex items-center gap-2">
-              <TruckIcon width={16} height={16} className="text-emerald-600" /> تتبع الشحنة من صفحة
-              الطلب
-            </p>
-            <p className="flex items-center gap-2">
-              <ShieldIcon width={16} height={16} className="text-emerald-600" /> ضمان استرداد خلال 15
-              يومًا
-            </p>
-            <Link href="/products" className="block pt-1 text-sm font-bold text-gold-600 hover:underline">
-              تسوّق منتجات أخرى ←
-            </Link>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
     </div>
   );

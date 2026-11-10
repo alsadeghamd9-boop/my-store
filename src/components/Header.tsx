@@ -1,131 +1,98 @@
-import { getCurrentUser, type SessionUser } from "@/lib/auth";
-import { listCategories } from "@/db/queries";
-import SearchBar from "@/components/SearchBar";
-import CartButton from "@/components/CartButton";
+import Link from "next/link";
+import { Suspense } from "react";
+import { Package, ShoppingCart, Tag, Zap } from "lucide-react";
 import AccountMenu from "@/components/AccountMenu";
-import Toasts from "@/components/Toasts";
-import { BoxIcon, MenuIcon, PinIcon, SparkIcon, TruckIcon } from "@/components/icons";
+import Logo from "@/components/Logo";
+import SearchBar from "@/components/SearchBar";
+import { getCurrentUser } from "@/lib/auth";
+import { getCart } from "@/lib/cart";
+import { itemsLabel } from "@/lib/format";
+import { getCategories } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+const navLink =
+  "flex items-center gap-1.5 rounded-full px-3 py-1.5 whitespace-nowrap text-ink-100 hover:bg-white/10 hover:text-white";
 
 export default async function Header() {
-  let user: SessionUser | null = null;
-  let cats: Awaited<ReturnType<typeof listCategories>> = [];
-
-  try {
-    user = await getCurrentUser();
-  } catch {
-    user = null;
-  }
-  try {
-    cats = await listCategories();
-  } catch {
-    cats = [];
-  }
-
-  const navCategories = cats.map((category) => ({
-    name: category.name,
-    slug: category.slug,
-  }));
+  const [user, cart, cats] = await Promise.all([getCurrentUser(), getCart(), getCategories()]);
 
   return (
-    <header className="sticky top-0 z-50 shadow-md">
-      <div className="bg-ink-950 text-white">
-        <div className="mx-auto flex max-w-[1440px] items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4">
-          <a
-            href="/"
-            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 transition hover:outline hover:outline-1 hover:outline-white/40"
-          >
-            <span className="text-xl leading-none font-black tracking-tight sm:text-2xl">
-              سوق<span className="text-gold-400">.sa</span>
-            </span>
-            <svg viewBox="0 0 60 14" className="h-2.5 w-10 text-gold-400" aria-hidden="true">
-              <path
-                d="M2 4c14 8 40 8 54 0"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </svg>
-          </a>
+    <header id="top" className="on-dark bg-ink-900 text-white">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-saffron-500 focus:px-4 focus:py-2 focus:font-semibold focus:text-ink-950"
+      >
+        تخطَّ إلى المحتوى
+      </a>
 
-          <div className="hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs transition hover:outline hover:outline-1 hover:outline-white/40 lg:flex">
-            <PinIcon width={16} height={16} className="text-gold-400" />
-            <span className="leading-tight">
-              <span className="block text-white/60">التوصيل إلى</span>
-              <span className="block font-bold">الرياض 12271</span>
-            </span>
-          </div>
+      <p className="bg-ink-950 px-3 py-1.5 text-center text-xs text-ink-100">
+        توصيل مجاني للطلبات فوق 200 ر.س · الدفع عند الاستلام متاح
+      </p>
 
-          <div className="min-w-0 flex-1">
-            <SearchBar categories={navCategories} />
-          </div>
+      <div className="container-page flex flex-wrap items-center gap-x-3 gap-y-3 py-3 lg:flex-nowrap lg:gap-6">
+        <Logo />
 
-          <AccountMenu
-            user={
-              user
-                ? { name: user.name, email: user.email, role: user.role }
-                : null
-            }
-          />
+        <div className="order-last w-full lg:order-none lg:w-auto lg:flex-1">
+          <Suspense fallback={<div className="h-11 rounded-full bg-white/10" />}>
+            <SearchBar categories={cats.map((c) => ({ slug: c.slug, name: c.name }))} />
+          </Suspense>
+        </div>
 
-          <a
+        <div className="ms-auto flex items-center gap-0.5 sm:gap-1.5 lg:ms-0">
+          <AccountMenu user={user ? { name: user.name, role: user.role } : null} />
+          <Link
             href="/orders"
-            className="hidden shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs leading-tight transition hover:outline hover:outline-1 hover:outline-white/40 md:flex"
+            className="hidden items-center gap-2 rounded-lg px-3 py-2 text-sm text-white hover:bg-white/10 md:flex"
           >
-            <BoxIcon width={18} height={18} className="text-gold-400" />
-            <span>
-              <span className="block text-white/60">مرتجعاتك</span>
-              <span className="block font-bold">وطلباتك</span>
+            <Package size={20} aria-hidden="true" />
+            طلباتي
+          </Link>
+          <Link
+            href="/cart"
+            aria-label={`سلة التسوق: ${itemsLabel(cart.count)}`}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-white hover:bg-white/10"
+          >
+            <span className="relative">
+              <ShoppingCart size={24} aria-hidden="true" />
+              <span
+                className="absolute -end-2.5 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-saffron-500 px-1 text-xs leading-none font-bold text-ink-950"
+                aria-hidden="true"
+              >
+                {cart.count}
+              </span>
             </span>
-          </a>
-
-          <CartButton />
+            <span className="hidden text-sm font-medium sm:inline">السلة</span>
+          </Link>
         </div>
       </div>
 
-      <div className="bg-ink-800 text-white">
-        <div className="no-scrollbar mx-auto flex max-w-[1440px] items-center gap-1 overflow-x-auto px-3 py-1.5 text-sm sm:px-4">
-          <a
-            href="/products"
-            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 font-bold transition hover:outline hover:outline-1 hover:outline-white/40"
-          >
-            <MenuIcon width={16} height={16} />
-            كل الأقسام
-          </a>
-          {navCategories.map((category) => (
-            <a
-              key={category.slug}
-              href={`/products?category=${category.slug}`}
-              className="shrink-0 rounded-md px-2 py-1 text-white/85 transition hover:bg-white/10 hover:text-white"
-            >
-              {category.name}
-            </a>
+      <nav aria-label="أقسام المتجر" className="bg-ink-800">
+        <ul className="no-scrollbar container-page flex items-center gap-0.5 overflow-x-auto py-1.5 text-sm">
+          <li>
+            <Link href="/search" className={navLink}>
+              كل المنتجات
+            </Link>
+          </li>
+          <li>
+            <Link href="/search?deal=1" className={`${navLink} font-semibold !text-saffron-300`}>
+              <Tag size={15} aria-hidden="true" />
+              عروض اليوم
+            </Link>
+          </li>
+          <li>
+            <Link href="/search?express=1" className={navLink}>
+              <Zap size={15} aria-hidden="true" />
+              إكسبرس
+            </Link>
+          </li>
+          {cats.map((c) => (
+            <li key={c.id}>
+              <Link href={`/search?category=${c.slug}`} className={navLink}>
+                {c.name}
+              </Link>
+            </li>
           ))}
-          <a
-            href="/products?sort=discount"
-            className="flex shrink-0 items-center gap-1 rounded-md bg-gold-400/15 px-2 py-1 font-bold text-gold-300 transition hover:bg-gold-400/25"
-          >
-            <SparkIcon width={15} height={15} />
-            عروض اليوم
-          </a>
-          <a
-            href="/products?sort=bestselling"
-            className="hidden shrink-0 rounded-md px-2 py-1 text-white/85 transition hover:bg-white/10 hover:text-white sm:block"
-          >
-            الأكثر مبيعًا
-          </a>
-          <a
-            href="/products?perPage=24"
-            className="hidden shrink-0 items-center gap-1 rounded-md px-2 py-1 text-white/85 transition hover:bg-white/10 hover:text-white lg:flex"
-          >
-            <TruckIcon width={15} height={15} />
-            شحن مجاني فوق 300 ر.س
-          </a>
-        </div>
-      </div>
-      <Toasts />
+        </ul>
+      </nav>
     </header>
   );
 }

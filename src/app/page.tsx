@@ -1,215 +1,137 @@
 import Link from "next/link";
-import { getHomeData } from "@/db/queries";
-import HeroCarousel, { type Slide } from "@/components/HeroCarousel";
-import ProductRail from "@/components/ProductRail";
+import { Banknote, ChevronLeft, RotateCcw, ShieldCheck, Truck, Zap } from "lucide-react";
+import HeroCarousel from "@/components/HeroCarousel";
 import ProductCard from "@/components/ProductCard";
-import CountdownTimer from "@/components/CountdownTimer";
-import { SectionHeading, Stars } from "@/components/ui";
-import { SparkIcon, TruckIcon } from "@/components/icons";
-import { formatPrice } from "@/lib/format";
+import SectionHeader from "@/components/SectionHeader";
+import SmartImage from "@/components/SmartImage";
+import { getCategories, listProducts, type ProductCardData } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
-
-const GRADIENTS = [
-  "bg-gradient-to-l from-ink-950 via-indigo-900 to-sky-800",
-  "bg-gradient-to-l from-rose-900 via-orange-800 to-amber-600",
-  "bg-gradient-to-l from-emerald-900 via-teal-800 to-cyan-700",
-  "bg-gradient-to-l from-violet-900 via-fuchsia-800 to-rose-700",
+const BENEFITS = [
+  { icon: Truck, title: "توصيل سريع", text: "منتجات إكسبرس تصلك في اليوم التالي" },
+  { icon: Banknote, title: "الدفع عند الاستلام", text: "ادفع نقداً لحظة تسليم طلبك" },
+  { icon: RotateCcw, title: "إرجاع خلال 15 يوماً", text: "للمنتجات غير المستخدمة بعبوتها" },
+  { icon: ShieldCheck, title: "منتجات أصلية", text: "بضمان الوكيل أو ضمان المتجر" },
 ];
 
-export default async function HomePage() {
-  let data: Awaited<ReturnType<typeof getHomeData>> | null = null;
-  let error = false;
-
-  try {
-    data = await getHomeData();
-  } catch {
-    error = true;
-  }
-
-  if (error || !data) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-24 text-center">
-        <h1 className="text-2xl font-black text-ink-900">تعذّر تحميل المتجر</h1>
-        <p className="mt-3 text-slate-600">
-          لم نتمكن من الاتصال بقاعدة البيانات. سيتم إنشاء الجداول وبذر المنتجات تلقائيًا عند أول
-          تشغيل للخادم — أعد تحميل الصفحة بعد لحظات.
-        </p>
-        <Link href="/" className="btn-gold mt-6 inline-block rounded-full px-6 py-2.5 font-bold">
-          إعادة المحاولة
-        </Link>
-      </div>
-    );
-  }
-
-  const heroPool = [...data.featured, ...data.deals, ...data.bestSellers];
-  const slides: Slide[] = heroPool.slice(0, 4).map((product, index) => ({
-    id: product.slug,
-    eyebrow: index % 2 === 0 ? "عرض محدود" : "الأكثر طلبًا",
-    title: product.title,
-    description:
-      product.oldPrice && product.oldPrice > product.price
-        ? `السعر الآن ${formatPrice(product.price)} بدلًا من ${formatPrice(product.oldPrice)} — وفّر حتى ${Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)}% لفترة محدودة.`
-        : `متوفر الآن مع شحن سريع وتقييم ${product.rating.toFixed(1)} من ${product.reviewCount.toLocaleString("ar-SA-u-nu-latn")} عميل.`,
-    cta: "تسوّق الآن",
-    href: `/product/${product.slug}`,
-    image: product.image,
-    gradient: GRADIENTS[index % GRADIENTS.length],
-  }));
-
+function ProductRail({ items }: { items: ProductCardData[] }) {
   return (
-    <div className="mx-auto max-w-[1440px] space-y-8 px-3 py-4 sm:px-4 sm:py-6">
-      <section className="grid gap-4 lg:grid-cols-[1fr_330px]">
-        <HeroCarousel slides={slides} />
-
-        <aside className="card flex flex-col p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-lg font-extrabold text-ink-900">صفقات تنتهي قريبًا</h2>
-            <span className="rounded-full bg-rose-50 px-2 py-1 text-[11px] font-black text-rose-600">
-              حصرية
-            </span>
-          </div>
-          <CountdownTimer hoursFromNow={9} />
-          <ul className="mt-4 flex-1 space-y-3">
-            {data.deals.slice(0, 4).map((product) => (
-              <li key={product.id}>
-                <Link href={`/product/${product.slug}`} className="group flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={product.image}
-                    alt=""
-                    loading="lazy"
-                    className="h-14 w-14 shrink-0 rounded-lg bg-slate-50 object-cover"
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="line-clamp-1 text-sm font-semibold text-ink-900 transition group-hover:text-gold-600">
-                      {product.title}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-2">
-                      <Stars value={product.rating} size={12} />
-                      <span className="text-sm font-extrabold text-rose-600">
-                        {formatPrice(product.price)}
-                      </span>
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <Link
-            href="/products?sort=discount"
-            className="btn-orange mt-4 rounded-full py-2 text-center text-sm font-extrabold"
-          >
-            شاهد كل العروض
-          </Link>
-        </aside>
-      </section>
-
-      <section>
-        <SectionHeading
-          title="تسوّق حسب القسم"
-          subtitle="آلاف المنتجات في ستة أقسام رئيسية"
-          href="/products"
-        />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {data.categories.map((category) => (
-            <Link
-              key={category.slug}
-              href={`/products?category=${category.slug}`}
-              className="card group relative h-32 overflow-hidden sm:h-40"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={category.image ?? ""}
-                alt=""
-                loading="lazy"
-                className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-110"
-              />
-              <span className="absolute inset-0 bg-gradient-to-t from-ink-950/85 via-ink-950/25 to-transparent" />
-              <span className="absolute inset-x-0 bottom-0 p-3 text-white">
-                <span className="block text-sm font-extrabold">{category.name}</span>
-                <span className="block text-[11px] text-white/70">{category.tagline}</span>
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="card p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="flex items-center gap-2 text-xl font-extrabold text-ink-900 sm:text-2xl">
-              <SparkIcon width={22} height={22} className="text-gold-500" />
-              عروض اليوم
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">خصومات حقيقية على منتجات مختارة</p>
-          </div>
-          <CountdownTimer hoursFromNow={20} label="تنتهي خلال" />
-        </div>
-        <ProductRail products={data.deals} />
-      </section>
-
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-ink-950 via-ink-800 to-gold-600 px-6 py-8 text-white sm:px-10">
-        <div className="relative z-10 max-w-xl">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur">
-            <TruckIcon width={15} height={15} />
-            عرض التوصيل
-          </span>
-          <h2 className="mt-3 text-2xl font-black sm:text-3xl">شحن مجاني لكل طلب فوق 300 ر.س</h2>
-          <p className="mt-2 text-sm text-white/80">
-            استخدم كود <span className="rounded bg-white/20 px-2 py-0.5 font-black">WELCOME10</span>{" "}
-            واحصل على خصم 10% على أول طلب، أو{" "}
-            <span className="rounded bg-white/20 px-2 py-0.5 font-black">FREESHIP</span> لشحن مجاني
-            بدون حد أدنى.
-          </p>
-          <Link
-            href="/products?sort=bestselling"
-            className="btn-gold mt-5 inline-block rounded-full px-6 py-2.5 text-sm font-extrabold"
-          >
-            ابدأ التسوق الآن
-          </Link>
-        </div>
-        <span className="pointer-events-none absolute -left-10 -top-10 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-      </section>
-
-      <section>
-        <SectionHeading
-          title="الأكثر مبيعًا هذا الأسبوع"
-          subtitle="اختيارات عملائنا المفضلة"
-          href="/products?sort=bestselling"
-        />
-        <ProductRail products={data.bestSellers} />
-      </section>
-
-      <section>
-        <SectionHeading
-          title="وصل حديثًا"
-          subtitle="أحدث ما أضفناه إلى المتجر"
-          href="/products?sort=newest"
-        />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-          {data.newArrivals.slice(0, 6).map((product) => (
-            <ProductRailItem key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-
-      <section className="card p-4 sm:p-5">
-        <SectionHeading
-          title="مختارات لك"
-          subtitle="منتجات مميزة بجودة عالية وأسعار منافسة"
-          href="/products?perPage=24"
-        />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {data.featured.map((product) => (
-            <ProductRailItem key={product.id} product={product} />
-          ))}
-        </div>
-      </section>
-    </div>
+    <ul className="thin-scrollbar -mx-3 flex snap-x scroll-px-3 gap-3 overflow-x-auto px-3 pb-3 sm:mx-0 sm:scroll-px-0 sm:px-0">
+      {items.map((p) => (
+        <li key={p.id} className="w-[46vw] max-w-[230px] shrink-0 snap-start sm:w-[230px]">
+          <ProductCard product={p} />
+        </li>
+      ))}
+    </ul>
   );
 }
 
-function ProductRailItem({ product }: { product: Parameters<typeof ProductCard>[0]["product"] }) {
-  return <ProductCard product={product} />;
+export default async function HomePage() {
+  const [cats, deals, best, fresh] = await Promise.all([
+    getCategories(),
+    listProducts({ deal: true, pageSize: 10 }),
+    listProducts({ sort: "featured", pageSize: 8 }),
+    listProducts({ sort: "newest", pageSize: 10 }),
+  ]);
+
+  return (
+    <div className="container-page space-y-10 py-4 sm:space-y-12 sm:py-6">
+      <h1 className="sr-only">قافلة — تسوّق الإلكترونيات والأزياء ومستلزمات المنزل</h1>
+
+      <HeroCarousel />
+
+      <section aria-label="مزايا التسوق من قافلة">
+        <ul className="card grid grid-cols-2 gap-x-3 gap-y-5 p-4 sm:p-5 lg:grid-cols-4">
+          {BENEFITS.map(({ icon: Icon, title, text }) => (
+            <li key={title} className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-saffron-100 text-ink-900">
+                <Icon size={20} aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-ink-950">{title}</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-muted">{text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-labelledby="home-cats">
+        <div className="mb-4">
+          <h2 id="home-cats" className="text-xl font-bold text-ink-950 sm:text-2xl">
+            تسوّق حسب القسم
+          </h2>
+        </div>
+        <ul className="grid grid-cols-4 gap-2 sm:gap-3 lg:grid-cols-8">
+          {cats.map((c) => (
+            <li key={c.id}>
+              <Link
+                href={`/search?category=${c.slug}`}
+                className="group flex h-full flex-col items-center gap-2 rounded-2xl border border-line bg-white p-1.5 pb-2.5 text-center transition-colors hover:border-ink-700 sm:p-2.5 sm:pb-3"
+              >
+                <span className="block w-full overflow-hidden rounded-xl bg-paper">
+                  <SmartImage
+                    src={c.image}
+                    alt=""
+                    className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                </span>
+                <span className="text-[11px] leading-tight font-semibold text-ink-950 sm:text-sm">
+                  {c.name}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {deals.items.length > 0 && (
+        <section aria-label="عروض اليوم">
+          <SectionHeader
+            title="عروض اليوم"
+            note="أسعار مخفّضة على منتجات مختارة"
+            href="/search?deal=1"
+            linkLabel="كل العروض"
+          />
+          <ProductRail items={deals.items} />
+        </section>
+      )}
+
+      <section className="overflow-hidden rounded-3xl bg-ink-900 text-white">
+        <div className="on-dark flex flex-col items-start gap-5 p-6 sm:p-8 md:flex-row md:items-center md:justify-between md:p-10">
+          <div className="flex items-start gap-4">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-saffron-500 text-ink-950">
+              <Zap size={24} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="text-xl font-bold sm:text-2xl">اطلب اليوم، ويصلك غداً</h2>
+              <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-ink-100 sm:text-base">
+                المنتجات التي تحمل شارة «إكسبرس» جاهزة في مستودعاتنا وتُسلَّم في اليوم التالي داخل
+                المدن الرئيسية.
+              </p>
+            </div>
+          </div>
+          <Link href="/search?express=1" className="btn btn-primary shrink-0 px-6 py-3">
+            تصفّح منتجات إكسبرس
+            <ChevronLeft size={17} aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
+
+      <section aria-label="الأكثر مبيعاً">
+        <SectionHeader title="الأكثر مبيعاً" href="/search" />
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          {best.items.map((p) => (
+            <li key={p.id}>
+              <ProductCard product={p} />
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-label="وصل حديثاً">
+        <SectionHeader title="وصل حديثاً" href="/search?sort=newest" />
+        <ProductRail items={fresh.items} />
+      </section>
+    </div>
+  );
 }

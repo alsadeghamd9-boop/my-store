@@ -1,9 +1,8 @@
-import { signOutSession } from "@/lib/auth";
-import { ok } from "@/lib/api";
+import { BAD_REQUEST, fail, ok, readJson } from "@/lib/api";
+import { destroySession } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
-
-export async function POST() {
-  await signOutSession();
+export async function POST(req: Request) {
+  if (!(await readJson(req))) return fail(BAD_REQUEST);
+  await destroySession();
   return ok({ ok: true });
 }

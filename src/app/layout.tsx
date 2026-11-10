@@ -1,35 +1,44 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import "@fontsource-variable/alexandria";
+import "@fontsource/ibm-plex-sans-arabic/400.css";
+import "@fontsource/ibm-plex-sans-arabic/500.css";
+import "@fontsource/ibm-plex-sans-arabic/600.css";
+import "@fontsource/ibm-plex-sans-arabic/700.css";
 import "./globals.css";
-import { CartProvider } from "@/components/CartProvider";
-import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Header from "@/components/Header";
+import ToastProvider from "@/components/ToastProvider";
+
+// Every page shows the shopper's cart and account, so nothing is prerendered.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "سوق | متجرك الإلكتروني لكل ما تحتاجه",
+  title: {
+    default: "قافلة — كل ما تحتاجه يصل إلى بابك",
+    template: "%s | قافلة",
+  },
   description:
-    "سوق — متجر إلكتروني متكامل: إلكترونيات، أزياء، منزل ومطبخ، جمال، ألعاب وكتب. شحن سريع، دفع آمن، وإرجاع مجاني.",
+    "متجر قافلة الإلكتروني: إلكترونيات، جوالات، أزياء، مستلزمات المنزل والمزيد، مع توصيل سريع ودفع عند الاستلام.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b2a2f",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" dir="rtl">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-screen bg-[#f4f5f7] text-ink-900 antialiased">
-        <CartProvider>
+      <body className="font-sans antialiased">
+        <ToastProvider>
           <div className="flex min-h-screen flex-col">
             <Header />
-            <main className="flex-1">{children}</main>
+            <main id="main" className="flex-1">
+              {children}
+            </main>
             <Footer />
           </div>
-        </CartProvider>
+        </ToastProvider>
       </body>
     </html>
   );

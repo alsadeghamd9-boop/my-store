@@ -1,131 +1,86 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
-import { useCart } from "@/components/CartProvider";
-import { Price, Stars } from "@/components/ui";
-import { CartIcon, HeartIcon, TruckIcon } from "@/components/icons";
-import { discountPercent } from "@/lib/format";
+import AddToCartButton from "@/components/AddToCartButton";
+import { ExpressBadge } from "@/components/Badges";
+import Price from "@/components/Price";
+import SmartImage from "@/components/SmartImage";
+import Stars from "@/components/Stars";
+import WishlistButton from "@/components/WishlistButton";
+import { discountPercent, formatCount, formatPrice } from "@/lib/format";
+import { getWishlistIds, type ProductCardData } from "@/lib/queries";
 
-export interface CardProduct {
-  id: number;
-  slug: string;
-  title: string;
-  price: number;
-  oldPrice?: number | null;
-  rating: number;
-  reviewCount: number;
-  image: string;
-  stock: number;
-  sold?: number;
-  brand?: string | null;
-  fastShipping?: boolean;
-}
-
-export default function ProductCard({
-  product,
-  compact = false,
-  priority = false,
-}: {
-  product: CardProduct;
-  compact?: boolean;
-  priority?: boolean;
-}) {
-  const { add, wishlist, toggleWishlist } = useCart();
-  const [busy, setBusy] = useState(false);
-  const inWishlist = wishlist.includes(product.id);
-  const off = discountPercent(product.price, product.oldPrice);
+export default async function ProductCard({ product }: { product: ProductCardData }) {
+  const wishlist = await getWishlistIds();
+  const off = discountPercent(product.price, product.listPrice);
   const out = product.stock <= 0;
-  const low = !out && product.stock <= 5;
-
-  async function handleAdd() {
-    setBusy(true);
-    await add(product.id, 1);
-    setBusy(false);
-  }
+  const href = `/product/${product.slug}`;
 
   return (
-    <article className="card group relative flex h-full flex-col overflow-hidden transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-      <Link
-        href={`/product/${product.slug}`}
-        className="relative block aspect-square overflow-hidden bg-slate-50"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={product.image}
-          alt={product.title}
-          loading={priority ? "eager" : "lazy"}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-        />
+    <article className="group relative flex h-full flex-col rounded-2xl border border-line bg-white p-2.5 transition-shadow hover:shadow-[0_14px_34px_-14px_rgba(11,42,47,0.35)] sm:p-3">
+      <div className="relative">
+        <Link
+          href={href}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="block overflow-hidden rounded-xl bg-paper"
+        >
+          <SmartImage
+            src={product.images[0]}
+            alt=""
+            className={`aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.04] ${
+              out ? "opacity-60 grayscale" : ""
+            }`}
+          />
+        </Link>
         {off > 0 && (
-          <span className="absolute right-2 top-2 rounded-md bg-rose-600 px-1.5 py-0.5 text-[11px] font-black text-white shadow">
+          <span className="absolute start-2 top-2 rounded-md bg-deal px-1.5 py-0.5 text-xs font-bold text-white">
             خصم {off}%
           </span>
         )}
-        {out && (
-          <span className="absolute inset-x-0 bottom-0 bg-ink-900/85 py-1 text-center text-xs font-bold text-white">
-            نفدت الكمية
-          </span>
-        )}
-      </Link>
+        <div className="absolute end-2 top-2">
+          <WishlistButton productId={product.id} initialSaved={wishlist.has(product.id)} />
+        </div>
+      </div>
 
-      <button
-        type="button"
-        onClick={() => void toggleWishlist(product.id)}
-        aria-label={inWishlist ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
-        className={`absolute left-2 top-2 grid h-8 w-8 place-items-center rounded-full backdrop-blur transition ${
-          inWishlist
-            ? "bg-rose-500 text-white"
-            : "bg-white/85 text-slate-500 hover:bg-white hover:text-rose-500"
-        }`}
-      >
-        <HeartIcon width={16} height={16} />
-      </button>
+      <div className="flex flex-1 flex-col pt-3">
+        {product.brand && <p className="text-xs text-muted">{product.brand}</p>}
+        <h3 className="mt-0.5 line-clamp-2 min-h-[2.6rem] font-sans text-sm leading-snug font-medium text-body">
+          <Link href={href} className="hover:text-ink-700 hover:underline">
+            {product.title}
+          </Link>
+        </h3>
 
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
-        {product.brand && !compact && (
-          <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-            {product.brand}
-          </span>
-        )}
-        <Link
-          href={`/product/${product.slug}`}
-          className="line-clamp-2 text-sm font-semibold leading-snug text-ink-900 transition hover:text-gold-600"
-        >
-          {product.title}
-        </Link>
-
-        <Stars value={product.rating} count={product.reviewCount} />
-
-        <div className="mt-auto">
-          <Price value={product.price} old={product.oldPrice} size={compact ? "sm" : "md"} />
-
-          {typeof product.sold === "number" && product.sold > 500 && (
-            <p className="mt-1 text-[11px] font-semibold text-slate-500">
-              +{product.sold.toLocaleString("ar-SA-u-nu-latn")} تم شراؤه
-            </p>
+        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+          {product.ratingCount > 0 ? (
+            <>
+              <Stars value={product.ratingAvg} size={14} />
+              <span dir="ltr">({formatCount(product.ratingCount)})</span>
+            </>
+          ) : (
+            <span>لا تقييمات بعد</span>
           )}
+        </div>
 
-          <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-            <TruckIcon width={14} height={14} />
-            {product.fastShipping ? "توصيل خلال 24 ساعة" : "توصيل خلال 2-4 أيام"}
-          </p>
-
-          {low && (
-            <p className="mt-1 text-[11px] font-bold text-rose-600">
-              باقي {product.stock} قطع فقط!
-            </p>
+        <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <Price value={product.price} />
+          {off > 0 && product.listPrice && (
+            <span className="text-xs text-muted">
+              <span className="sr-only">السعر السابق </span>
+              <span dir="ltr" className="line-through">
+                {formatPrice(product.listPrice)}
+              </span>
+            </span>
           )}
+        </div>
 
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={busy || out}
-            className="btn-gold mt-2 flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <CartIcon width={16} height={16} />
-            {busy ? "جارٍ الإضافة..." : out ? "غير متوفر" : "أضف إلى السلة"}
-          </button>
+        <div className="mt-2 flex min-h-5 flex-wrap items-center gap-x-2 gap-y-1">
+          {product.express && !out && <ExpressBadge />}
+          {!out && product.stock <= 5 && (
+            <span className="text-xs font-semibold text-deal">بقي {product.stock} فقط</span>
+          )}
+        </div>
+
+        <div className="mt-auto pt-3">
+          <AddToCartButton productId={product.id} outOfStock={out} />
         </div>
       </div>
     </article>

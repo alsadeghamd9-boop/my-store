@@ -1,38 +1,37 @@
-import { requireAdmin } from "@/lib/auth";
-import { getOrderWithItems, updateOrderStatus } from "@/db/queries";
-import { fail, ok, readJson, toNumber, toStringValue } from "@/lib/api";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { orders } from "@/db/schema";
+import { BAD_REQUEST, fail, int, ok, readJson } from "@/lib/api";
+import { getCurrentUser } from "@/lib/auth";
+import { isOrderStatus } from "@/lib/constants";
+import { restoreStock } from "@/lib/orders";
 
-export const dynamic = "force-dynamic";
-
-const VALID = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
-
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdmin();
-  if (!admin) return fail("صلاحية المسؤول مطلوبة", 401);
-
-  const { id } = await context.params;
-  const orderId = toNumber(id);
-  if (!orderId) return fail("طلب غير صالح", 404);
-
+/** Admin: move an order to a new status. */
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const body = await readJson(req);
-  const status = toStringValue(body.status);
-  if (!VALID.includes(status)) return fail("حالة غير صالحة");
+  if (!body) return fail(BAD_REQUEST);
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") return fail("هذه العملية متاحة لمدير المتجر فقط.", 403);
+  const id = int((await params).id);
+  const status = body.status;
+  if (!id || !isOrderStatus(status)) return fail(BAD_REQUEST);
 
-  const updated = await updateOrderStatus(orderId, status);
-  if (!updated) return fail("الطلب غير موجود", 404);
+  const result = await db.transaction(async (tx) => {
+    const [order] = await tx
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, id))
+      .for("update");
+    if (!order) return "missing" as const;
+    if (order.status === status) return "done" as const;
+    // Cancelling returns stock to the shelf, so a cancelled order stays cancelled.
+    if (order.status === "cancelled") return "final" as const;
+    if (status === "cancelled") await restoreStock(tx, id);
+    await tx.update(orders).set({ status }).where(eq(orders.id, id));
+    return "done" as const;
+  });
 
-  return ok({ order: updated });
-}
-
-export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdmin();
-  if (!admin) return fail("صلاحية المسؤول مطلوبة", 401);
-
-  const { id } = await context.params;
-  const orderId = toNumber(id);
-  if (!orderId) return fail("طلب غير صالح", 404);
-
-  const data = await getOrderWithItems(orderId);
-  if (!data) return fail("الطلب غير موجود", 404);
-  return ok(data);
+  if (result === "missing") return fail("الطلب غير موجود.", 404);
+  if (result === "final") return fail("الطلب ملغي ولا يمكن تغيير حالته.", 409);
+  return ok({ ok: true, status });
 }

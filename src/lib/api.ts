@@ -4,44 +4,62 @@ export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json(data, init);
 }
 
-export function fail(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
+export function fail(message: string, status = 400, extra?: Record<string, unknown>) {
+  return NextResponse.json({ error: message, ...extra }, { status });
 }
 
-export async function readJson(req: Request): Promise<Record<string, unknown>> {
+/**
+ * Mutating endpoints only accept JSON bodies. Browsers cannot send
+ * `application/json` cross-site without a CORS preflight (which we never
+ * approve), so this doubles as CSRF protection for cookie-authenticated calls.
+ */
+export async function readJson(req: Request): Promise<Record<string, unknown> | null> {
+  const type = (req.headers.get("content-type") ?? "").toLowerCase();
+  if (!type.includes("application/json")) return null;
   try {
-    const data = await req.json();
-    if (data && typeof data === "object" && !Array.isArray(data)) {
-      return data as Record<string, unknown>;
+    const body: unknown = await req.json();
+    if (body && typeof body === "object" && !Array.isArray(body)) {
+      return body as Record<string, unknown>;
     }
+    return null;
   } catch {
-    /* ignore malformed bodies */
+    return null;
   }
-  return {};
 }
 
-export function toNumber(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
+export function str(value: unknown, max = 500) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+export function int(value: unknown): number | null {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+  return Number.isInteger(n) ? n : null;
+}
+
+export function clientIp(req: Request) {
+  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "local";
+}
+
+const buckets = new Map<string, { count: number; reset: number }>();
+
+/** Small in-memory limiter — enough to slow down password guessing. */
+export function rateLimit(key: string, limit: number, windowMs: number) {
+  const now = Date.now();
+  if (buckets.size > 5000) {
+    for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k);
   }
-  return undefined;
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.reset < now) {
+    buckets.set(key, { count: 1, reset: now + windowMs });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= limit;
 }
 
-export function toStringValue(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-export function slugify(input: string): string {
-  const base = input
-    .toLowerCase()
-    .replace(/[\u0600-\u06FF\u0750-\u077F]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return base.length >= 3 ? base : `product-${Date.now().toString(36)}`;
-}
-
-export function orderReference(): string {
-  return `SQ-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
-}
+export const BAD_REQUEST = "تعذّر قراءة الطلب. حدّث الصفحة وحاول مرة أخرى.";

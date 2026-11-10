@@ -1,139 +1,200 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { SearchIcon } from "@/components/icons";
-import { formatPrice } from "@/lib/format";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Search } from "lucide-react";
 
-interface Category {
-  name: string;
-  slug: string;
-}
+type Suggestion = { slug: string; title: string; image: string; price: number };
 
-interface Suggestion {
-  id: number;
-  slug: string;
-  title: string;
-  price: number;
-  image: string;
-}
-
-export default function SearchBar({ categories }: { categories: Category[] }) {
+export default function SearchBar({ categories }: { categories: { slug: string; name: string }[] }) {
   const router = useRouter();
-  const [term, setTerm] = useState("");
-  const [category, setCategory] = useState("");
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  const onSearch = pathname === "/search";
+  const urlQ = onSearch ? (sp.get("q") ?? "") : "";
+  const urlCategory = onSearch ? (sp.get("category") ?? "") : "";
+
+  const [q, setQ] = useState(urlQ);
+  const [category, setCategory] = useState(urlCategory);
+  const [items, setItems] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(-1);
+  const formRef = useRef<HTMLFormElement>(null);
+  const listId = useId();
 
+  // Keep the box in sync when the shopper navigates (back button, filter links…).
   useEffect(() => {
-    const handle = window.setTimeout(async () => {
-      if (term.trim().length < 2) {
-        setSuggestions([]);
-        return;
-      }
-      try {
-        const res = await fetch(`/api/products?q=${encodeURIComponent(term)}&perPage=5`);
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data.items ?? []);
-        }
-      } catch {
-        setSuggestions([]);
-      }
-    }, 250);
-    return () => window.clearTimeout(handle);
-  }, [term]);
-
-  useEffect(() => {
-    function onClick(event: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  function submit(event?: React.FormEvent) {
-    event?.preventDefault();
+    setQ(urlQ);
+    setCategory(urlCategory);
     setOpen(false);
+  }, [urlQ, urlCategory, pathname]);
+
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) {
+      setItems([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(term)}`, {
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setItems(Array.isArray(data.items) ? data.items : []);
+        setActive(-1);
+      } catch {
+        // Suggestions are optional; a failed lookup just shows none.
+      }
+    }, 180);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [q]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!formRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  function submit(e?: FormEvent) {
+    e?.preventDefault();
     const params = new URLSearchParams();
-    if (term.trim()) params.set("q", term.trim());
+    if (q.trim()) params.set("q", q.trim());
     if (category) params.set("category", category);
-    router.push(params.toString() ? `/products?${params.toString()}` : "/products");
+    const query = params.toString();
+    setOpen(false);
+    router.push(query ? `/search?${query}` : "/search");
   }
 
-  return (
-    <div ref={wrapRef} className="relative">
-      <form onSubmit={submit} className="flex h-10 overflow-hidden rounded-lg ring-gold-500 focus-within:ring-2">
-        <select
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-          aria-label="اختر القسم"
-          className="hidden max-w-[130px] shrink-0 border-l border-slate-200 bg-slate-100 px-2 text-xs font-semibold text-slate-700 outline-none sm:block"
-        >
-          <option value="">كل الأقسام</option>
-          {categories.map((item) => (
-            <option key={item.slug} value={item.slug}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <input
-          value={term}
-          onChange={(event) => {
-            setTerm(event.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          type="search"
-          placeholder="ابحث في سوق عن منتجات، ماركات، وأكثر..."
-          className="min-w-0 flex-1 bg-white px-3 text-sm text-ink-900 outline-none placeholder:text-slate-400"
-          aria-label="ابحث عن منتجات"
-        />
-        <button
-          type="submit"
-          className="grid w-12 shrink-0 place-items-center bg-gold-400 text-ink-900 transition hover:bg-gold-300"
-          aria-label="بحث"
-        >
-          <SearchIcon width={20} height={20} />
-        </button>
-      </form>
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Escape") {
+      setOpen(false);
+      return;
+    }
+    if (!open || items.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (i + 1) % items.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i <= 0 ? items.length - 1 : i - 1));
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      setOpen(false);
+      router.push(`/product/${items[active].slug}`);
+    }
+  }
 
-      {open && term.trim().length >= 2 && (
-        <div className="card absolute inset-x-0 top-11 z-50 max-h-[70vh] overflow-y-auto p-1 text-ink-900">
-          {suggestions.length === 0 ? (
-            <p className="px-3 py-3 text-sm text-slate-500">لا توجد نتائج مطابقة لـ «{term}»</p>
-          ) : (
-            suggestions.map((item) => (
-              <a
-                key={item.id}
+  const showList = open && items.length > 0;
+
+  return (
+    <form
+      ref={formRef}
+      role="search"
+      action="/search"
+      onSubmit={submit}
+      className="on-light relative flex h-11 items-stretch rounded-full bg-white text-body focus-within:ring-2 focus-within:ring-saffron-400"
+    >
+      <label htmlFor={`${listId}-cat`} className="sr-only">
+        ابحث داخل قسم
+      </label>
+      <select
+        id={`${listId}-cat`}
+        name="category"
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="hidden max-w-40 rounded-s-full border-e border-line bg-paper ps-4 pe-2 text-sm text-body focus:outline-none sm:block"
+      >
+        <option value="">كل الأقسام</option>
+        {categories.map((c) => (
+          <option key={c.slug} value={c.slug}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+
+      <label htmlFor={`${listId}-q`} className="sr-only">
+        ابحث في قافلة
+      </label>
+      <input
+        id={`${listId}-q`}
+        type="search"
+        name="q"
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        autoComplete="off"
+        enterKeyHint="search"
+        role="combobox"
+        aria-expanded={showList}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={showList && active >= 0 ? `${listId}-opt-${active}` : undefined}
+        placeholder="ابحث عن منتج أو ماركة أو قسم"
+        className="min-w-0 flex-1 rounded-s-full bg-transparent px-4 text-[15px] text-body placeholder:text-muted focus:outline-none sm:rounded-none"
+      />
+      <button
+        type="submit"
+        aria-label="بحث"
+        className="m-1 grid w-11 shrink-0 place-items-center rounded-full bg-saffron-500 text-ink-950 hover:bg-saffron-400"
+      >
+        <Search size={19} aria-hidden="true" />
+      </button>
+
+      {showList && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="اقتراحات البحث"
+          className="absolute inset-x-0 top-full z-40 mt-2 overflow-hidden rounded-2xl border border-line bg-white py-1.5 shadow-[0_20px_50px_-12px_rgba(6,25,28,0.35)]"
+        >
+          {items.map((item, i) => (
+            <li
+              key={item.slug}
+              id={`${listId}-opt-${i}`}
+              role="option"
+              aria-selected={i === active}
+            >
+              <Link
                 href={`/product/${item.slug}`}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-slate-50"
+                tabIndex={-1}
+                className={`flex items-center gap-3 px-3 py-2 text-sm text-body ${
+                  i === active ? "bg-paper" : "hover:bg-paper"
+                }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={item.image}
                   alt=""
-                  loading="lazy"
-                  className="h-11 w-11 shrink-0 rounded-md bg-slate-100 object-cover"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 shrink-0 rounded-lg bg-paper object-cover"
                 />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{item.title}</span>
-                  <span className="block text-xs font-bold text-gold-600">{formatPrice(item.price)}</span>
-                </span>
-              </a>
-            ))
-          )}
-          <button
-            type="button"
-            onClick={submit}
-            className="w-full rounded-lg bg-slate-100 px-3 py-2 text-sm font-bold text-ink-800 transition hover:bg-slate-200"
-          >
-            عرض كل النتائج لـ «{term}»
-          </button>
-        </div>
+                <span className="line-clamp-1 flex-1">{item.title}</span>
+              </Link>
+            </li>
+          ))}
+          <li role="presentation" className="mt-1 border-t border-line px-3 pt-2 pb-1">
+            <button type="submit" className="text-sm font-semibold text-ink-700 hover:underline">
+              عرض كل النتائج عن «{q.trim()}»
+            </button>
+          </li>
+        </ul>
       )}
-    </div>
+    </form>
   );
 }
