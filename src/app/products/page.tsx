@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import CatalogFilters, { SortSelect, type FilterState } from "@/components/CatalogFilters";
 import Pagination from "@/components/Pagination";
