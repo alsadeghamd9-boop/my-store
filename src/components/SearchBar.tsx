@@ -8,13 +8,16 @@ import { Search } from "lucide-react";
 type Suggestion = { slug: string; title: string; image: string; price: number };
 
 export default function SearchBar({ categories }: { categories: { slug: string; name: string }[] }) {
-  const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
   const onSearch = pathname === "/search";
   const urlQ = onSearch ? (sp.get("q") ?? "") : "";
   const urlCategory = onSearch ? (sp.get("category") ?? "") : "";
+  return <SearchBarInner key={`${pathname}:${urlQ}:${urlCategory}`} categories={categories} urlQ={urlQ} urlCategory={urlCategory} />;
+}
 
+function SearchBarInner({ categories, urlQ, urlCategory }: { categories: { slug: string; name: string }[]; urlQ: string; urlCategory: string }) {
+  const router = useRouter();
   const [q, setQ] = useState(urlQ);
   const [category, setCategory] = useState(urlCategory);
   const [items, setItems] = useState<Suggestion[]>([]);
@@ -23,19 +26,9 @@ export default function SearchBar({ categories }: { categories: { slug: string; 
   const formRef = useRef<HTMLFormElement>(null);
   const listId = useId();
 
-  // Keep the box in sync when the shopper navigates (back button, filter links…).
-  useEffect(() => {
-    setQ(urlQ);
-    setCategory(urlCategory);
-    setOpen(false);
-  }, [urlQ, urlCategory, pathname]);
-
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) {
-      setItems([]);
-      return;
-    }
+    if (term.length < 2) return;
     const ctrl = new AbortController();
     const timer = setTimeout(async () => {
       try {
@@ -102,7 +95,7 @@ export default function SearchBar({ categories }: { categories: { slug: string; 
       role="search"
       action="/search"
       onSubmit={submit}
-      className="on-light relative flex h-11 items-stretch rounded-full bg-white text-body focus-within:ring-2 focus-within:ring-saffron-400"
+      className="on-light relative flex h-11 items-stretch rounded-full border border-line bg-paper text-body focus-within:ring-2 focus-within:ring-ink-100"
     >
       <label htmlFor={`${listId}-cat`} className="sr-only">
         ابحث داخل قسم
@@ -112,7 +105,7 @@ export default function SearchBar({ categories }: { categories: { slug: string; 
         name="category"
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        className="hidden max-w-40 rounded-s-full border-e border-line bg-paper ps-4 pe-2 text-sm text-body focus:outline-none sm:block"
+        className="hidden max-w-40 rounded-s-full border-e border-line bg-transparent ps-4 pe-2 text-sm text-body focus:outline-none xl:block"
       >
         <option value="">كل الأقسام</option>
         {categories.map((c) => (
@@ -123,7 +116,7 @@ export default function SearchBar({ categories }: { categories: { slug: string; 
       </select>
 
       <label htmlFor={`${listId}-q`} className="sr-only">
-        ابحث في قافلة
+        ابحث في سوق السودان
       </label>
       <input
         id={`${listId}-q`}
@@ -132,6 +125,7 @@ export default function SearchBar({ categories }: { categories: { slug: string; 
         value={q}
         onChange={(e) => {
           setQ(e.target.value);
+          setItems([]);
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
@@ -143,13 +137,13 @@ export default function SearchBar({ categories }: { categories: { slug: string; 
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={showList && active >= 0 ? `${listId}-opt-${active}` : undefined}
-        placeholder="ابحث عن منتج أو ماركة أو قسم"
+        placeholder="بتفتش عن شنو؟ ابحث هنا"
         className="min-w-0 flex-1 rounded-s-full bg-transparent px-4 text-[15px] text-body placeholder:text-muted focus:outline-none sm:rounded-none"
       />
       <button
         type="submit"
         aria-label="بحث"
-        className="m-1 grid w-11 shrink-0 place-items-center rounded-full bg-saffron-500 text-ink-950 hover:bg-saffron-400"
+        className="m-1 grid w-11 shrink-0 place-items-center rounded-full bg-ink-900 text-white hover:bg-ink-700"
       >
         <Search size={19} aria-hidden="true" />
       </button>

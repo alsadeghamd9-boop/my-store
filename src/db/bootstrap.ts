@@ -1,11 +1,10 @@
 import { sql } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 
 /**
- * Schema DDL exactly as `drizzle-kit generate` emits it for `schema.ts`, so a
- * database created here is indistinguishable from one created by
- * `drizzle-kit push`. Regenerate when the schema changes:
- *   npx drizzle-kit generate --dialect postgresql --schema ./src/db/schema.ts --out /tmp/out
+ * Baseline DDL from the previous schema. Both new and existing databases are
+ * brought up to the current Drizzle schema by the additive migration below.
+ * Keep that migration in sync whenever schema.ts changes.
  */
 const DDL = `
 CREATE TABLE "cart_items" (
@@ -128,25 +127,29 @@ CREATE INDEX "products_category_idx" ON "products" USING btree ("category_id");-
 CREATE UNIQUE INDEX "reviews_product_user_idx" ON "reviews" USING btree ("product_id","user_id");
 `;
 
-async function schemaExists(runner: Pick<typeof db, "execute">) {
-  const result = await runner.execute(
-    sql`select to_regclass('public.products') is not null as present`,
-  );
-  return Boolean(result.rows[0]?.present);
-}
-
 /**
- * Creates the tables on a brand-new database, so the store only needs a
- * DATABASE_URL to run anywhere. Does nothing once the schema is in place.
+ * Initialise a new database and apply the additive migration to the previous
+ * schema. The advisory lock serialises concurrent serverless cold starts.
+ * This function is only called while handling a request, never at build time.
  */
 export async function ensureSchema() {
-  if (await schemaExists(db)) return;
-  await db.transaction(async (tx) => {
+  await getDb().transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(7243114)`);
-    if (await schemaExists(tx)) return;
-    for (const statement of DDL.split("--> statement-breakpoint")) {
-      const text = statement.trim();
-      if (text) await tx.execute(sql.raw(text));
+    const result = await tx.execute(sql`select to_regclass('public.products') is not null as present`);
+    if (!result.rows[0]?.present) {
+      for (const statement of DDL.split("--> statement-breakpoint")) {
+        const text = statement.trim();
+        if (text) await tx.execute(sql.raw(text));
+      }
     }
+    // Existing products, customers and orders are kept; old prices are not converted.
+    await tx.execute(sql`ALTER TABLE orders ALTER COLUMN user_id DROP NOT NULL`);
+    await tx.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_access_hash text`);
+    await tx.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_provider text NOT NULL DEFAULT ''`);
+    await tx.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_reference text NOT NULL DEFAULT ''`);
+    await tx.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'pending'`);
+    await tx.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS ship_state text NOT NULL DEFAULT ''`);
+    await tx.execute(sql`CREATE TABLE IF NOT EXISTS app_settings (key text PRIMARY KEY, value text NOT NULL)`);
+    await tx.execute(sql`CREATE TABLE IF NOT EXISTS login_attempts (key text PRIMARY KEY, attempts integer NOT NULL, expires_at timestamptz NOT NULL)`);
   });
 }

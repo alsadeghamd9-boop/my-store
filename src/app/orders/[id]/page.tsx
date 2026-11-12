@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { Banknote, Check, ChevronRight, CircleCheck, CircleX, MapPin } from "lucide-react";
 import { OrderStatusBadge } from "@/components/Badges";
 import CancelOrderButton from "@/components/CancelOrderButton";
 import { Money } from "@/components/Price";
 import SmartImage from "@/components/SmartImage";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { orderItems, orders, products } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { STATUS_HINTS, STATUS_LABELS, isOrderStatus } from "@/lib/constants";
 import { formatDate } from "@/lib/format";
+import { canAccessOrder } from "@/lib/order-access";
+import { PAYMENT_LABELS, PAYMENT_STATUS_LABELS, paymentProviderName } from "@/lib/payment-accounts";
+import { ensureSeeded } from "@/lib/seed";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "تفاصيل الطلب" };
 
@@ -28,14 +33,12 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
+  await ensureSeeded();
   const user = await getCurrentUser();
-  if (!user) redirect(`/login?next=/orders/${id}`);
+  const [order] = await getDb().select().from(orders).where(eq(orders.id, id)).limit(1);
+  if (!order || !(await canAccessOrder(order, user))) notFound();
 
-  const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-  if (!order || (order.userId !== user.id && user.role !== "admin")) notFound();
-
-  const lines = await db
-    .select({
+  const lines = await getDb().select({
       id: orderItems.id,
       title: orderItems.title,
       image: orderItems.image,
@@ -52,17 +55,17 @@ export default async function OrderPage({ params, searchParams }: Props) {
   const status = isOrderStatus(order.status) ? order.status : "pending";
   const cancelled = status === "cancelled";
   const stepIndex = STEPS.indexOf(status as (typeof STEPS)[number]);
-  const canCancel = (status === "pending" || status === "processing") && order.userId === user.id;
-  const isOwner = order.userId === user.id;
+  const isOwner = order.userId === null || order.userId === user?.id;
+  const canCancel = (status === "pending" || status === "processing") && isOwner;
 
   return (
     <div className="container-page py-5">
       <Link
-        href={isOwner ? "/orders" : "/admin/orders"}
+        href={isOwner ? (order.userId === null ? "/" : "/orders") : "/admin/orders"}
         className="inline-flex items-center gap-1 rounded-md text-sm font-semibold text-ink-700 hover:underline"
       >
         <ChevronRight size={16} aria-hidden="true" />
-        {isOwner ? "كل طلباتي" : "العودة إلى إدارة الطلبات"}
+        {isOwner ? (order.userId === null ? "العودة للمتجر" : "كل طلباتي") : "العودة إلى إدارة الطلبات"}
       </Link>
 
       {sp.placed === "1" && isOwner && !cancelled && (
@@ -74,8 +77,8 @@ export default async function OrderPage({ params, searchParams }: Props) {
           <div>
             <p className="font-display text-lg font-bold text-ink-950">شكراً لك! استلمنا طلبك.</p>
             <p className="mt-1 text-sm leading-relaxed text-muted">
-              سنبدأ تجهيزه الآن، ويمكنك متابعة حالته من هذه الصفحة في أي وقت. المبلغ المطلوب عند
-              الاستلام <Money value={order.total} className="font-semibold text-body" />.
+              طلبك قيد المراجعة. يمكنك متابعة حالته من هذه الصفحة. إجمالي الطلب <Money value={order.total} className="font-semibold text-body" />.
+              {order.userId === null && " احتفظ بهذه الصفحة في نفس المتصفح لمتابعة طلبك."}
             </p>
           </div>
         </div>
@@ -232,8 +235,11 @@ export default async function OrderPage({ params, searchParams }: Props) {
             </dl>
             <p className="mt-4 flex items-center gap-2 text-sm text-body">
               <Banknote size={18} aria-hidden="true" className="shrink-0 text-ink-700" />
-              الدفع عند الاستلام
+              {PAYMENT_LABELS[order.paymentMethod] ?? order.paymentMethod}
             </p>
+            {order.paymentProvider && <p className="mt-2 text-sm text-body">{paymentProviderName(order.paymentProvider)}</p>}
+            {order.paymentReference && <p className="mt-2 text-sm text-muted">مرجع التحويل: {order.paymentReference}</p>}
+            <p className="mt-2 text-xs text-muted">{PAYMENT_STATUS_LABELS[order.paymentStatus] ?? order.paymentStatus}{order.paymentMethod !== "cod" && " — يُراجع الدفع يدوياً."}</p>
           </section>
 
           <section className="card p-5" aria-labelledby="addr-title">
@@ -246,7 +252,7 @@ export default async function OrderPage({ params, searchParams }: Props) {
               <p>
                 {order.shipStreet}، {order.shipDistrict}
               </p>
-              <p>{order.shipCity}</p>
+              <p>{[order.shipState, order.shipCity].filter(Boolean).join("، ")}</p>
               <p dir="ltr" className="text-end">
                 {order.shipPhone}
               </p>

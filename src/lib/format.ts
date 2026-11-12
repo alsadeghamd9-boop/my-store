@@ -3,26 +3,26 @@ const priceFmt = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
 const countFmt = new Intl.NumberFormat("en-US");
-const dateFmt = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
+const dateFmt = new Intl.DateTimeFormat("ar-SD-u-ca-gregory-nu-latn", {
   day: "numeric",
   month: "long",
   year: "numeric",
-  timeZone: "Asia/Riyadh",
+  timeZone: "Africa/Khartoum",
 });
-const dayFmt = new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
+const dayFmt = new Intl.DateTimeFormat("ar-SD-u-ca-gregory-nu-latn", {
   weekday: "long",
   day: "numeric",
   month: "long",
-  timeZone: "Asia/Riyadh",
+  timeZone: "Africa/Khartoum",
 });
 
 /** 129900 -> "1,299.00" */
-export function formatPrice(halalas: number) {
-  return priceFmt.format(halalas / 100);
+export function formatPrice(piastres: number) {
+  return priceFmt.format(piastres / 100);
 }
 
-export function splitPrice(halalas: number) {
-  const [whole, frac] = formatPrice(halalas).split(".");
+export function splitPrice(piastres: number) {
+  const [whole, frac] = formatPrice(piastres).split(".");
   return { whole, frac: frac ?? "00" };
 }
 

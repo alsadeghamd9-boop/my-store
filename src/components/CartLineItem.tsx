@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Minus, Plus, Trash } from "lucide-react";
 import { ExpressBadge } from "@/components/Badges";
 import { Money } from "@/components/Price";
@@ -18,8 +18,6 @@ export default function CartLineItem({ line }: { line: CartLine }) {
   const [qty, setQty] = useState(line.quantity);
   const [busy, setBusy] = useState(false);
   const max = Math.min(line.stock, MAX_QTY);
-
-  useEffect(() => setQty(line.quantity), [line.quantity]);
 
   async function setQuantity(next: number) {
     if (busy) return;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Heart, LayoutDashboard, LogOut, Package, User } from "lucide-react";
 import { api } from "@/lib/client";
@@ -11,12 +11,9 @@ const item =
 
 export default function AccountMenu({ user }: { user: { name: string; role: string } | null }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -38,10 +35,10 @@ export default function AccountMenu({ user }: { user: { name: string; role: stri
     return (
       <Link
         href="/login"
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white hover:bg-white/10"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink-900 hover:bg-paper"
       >
         <User size={20} aria-hidden="true" />
-        <span>تسجيل الدخول</span>
+        <span className="hidden sm:inline">دخول</span>
       </Link>
     );
   }
@@ -55,7 +52,9 @@ export default function AccountMenu({ user }: { user: { name: string; role: stri
       return;
     }
     // Full reload so every cached view forgets the signed-in shopper.
-    window.location.assign("/");
+    setOpen(false);
+    router.push("/");
+    router.refresh();
   }
 
   const firstName = user.name.trim().split(/\s+/)[0];
@@ -67,7 +66,7 @@ export default function AccountMenu({ user }: { user: { name: string; role: stri
         aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white hover:bg-white/10"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink-900 hover:bg-paper"
       >
         <User size={20} aria-hidden="true" />
         <span className="max-w-28 truncate">مرحباً، {firstName}</span>
@@ -83,20 +82,20 @@ export default function AccountMenu({ user }: { user: { name: string; role: stri
           <p className="truncate border-b border-line px-4 pt-1.5 pb-2.5 text-sm font-semibold text-ink-950">
             {user.name}
           </p>
-          <Link href="/account" className={item}>
+          <Link href="/account" onClick={() => setOpen(false)} className={item}>
             <User size={17} aria-hidden="true" className="text-muted" />
             حسابي
           </Link>
-          <Link href="/orders" className={item}>
+          <Link href="/orders" onClick={() => setOpen(false)} className={item}>
             <Package size={17} aria-hidden="true" className="text-muted" />
             طلباتي
           </Link>
-          <Link href="/wishlist" className={item}>
+          <Link href="/wishlist" onClick={() => setOpen(false)} className={item}>
             <Heart size={17} aria-hidden="true" className="text-muted" />
             المفضلة
           </Link>
           {user.role === "admin" && (
-            <Link href="/admin" className={item}>
+            <Link href="/admin" onClick={() => setOpen(false)} className={item}>
               <LayoutDashboard size={17} aria-hidden="true" className="text-muted" />
               لوحة التحكم
             </Link>

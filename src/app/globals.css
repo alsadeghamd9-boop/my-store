@@ -4,26 +4,26 @@
   --font-sans: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, "Segoe UI", Tahoma, sans-serif;
   --font-display: "Alexandria Variable", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
 
-  /* Petroleum ink — header, footer, dark buttons */
-  --color-ink-950: #06191c;
-  --color-ink-900: #0b2a2f;
-  --color-ink-800: #113940;
-  --color-ink-700: #1a4c54;
-  --color-ink-100: #d3e0df;
+  /* Sudan-inspired forest, warm clay and natural linen. */
+  --color-ink-950: #142f29;
+  --color-ink-900: #21473b;
+  --color-ink-800: #31594b;
+  --color-ink-700: #416f5c;
+  --color-ink-100: #e3ebe2;
+  --color-terracotta: #b86647;
 
-  /* Saffron — the one call-to-action colour */
-  --color-saffron-100: #fff1cc;
-  --color-saffron-300: #ffd466;
-  --color-saffron-400: #ffc02e;
-  --color-saffron-500: #f7a600;
-  --color-saffron-600: #d48c00;
+  --color-saffron-100: #f7e9d8;
+  --color-saffron-300: #eac79e;
+  --color-saffron-400: #ddb585;
+  --color-saffron-500: #d09b6c;
+  --color-saffron-600: #b97c50;
 
-  --color-paper: #eef1ef;
-  --color-line: #dae1de;
-  --color-muted: #566866;
-  --color-body: #0f2224;
-  --color-deal: #c4301c;
-  --color-express: #0a7558;
+  --color-paper: #f7f6f0;
+  --color-line: #e7e9df;
+  --color-muted: #768077;
+  --color-body: #283b32;
+  --color-deal: #b65b42;
+  --color-express: #39775d;
 }
 
 @layer base {
@@ -73,7 +73,7 @@
 
 @layer components {
   .container-page {
-    @apply mx-auto w-full max-w-[1400px] px-3 sm:px-5;
+    @apply mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-10;
   }
 
   .btn {
@@ -81,7 +81,7 @@
   }
 
   .btn-primary {
-    @apply bg-saffron-500 text-ink-950 hover:bg-saffron-400 active:bg-saffron-600;
+    @apply bg-ink-900 text-white hover:bg-ink-700 active:bg-ink-950;
   }
 
   .btn-dark {

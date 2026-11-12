@@ -11,7 +11,11 @@ type Props = {
 };
 
 /** Plain <img> with a neutral placeholder if the remote photo fails to load. */
-export default function SmartImage({ src, alt, className = "", eager = false }: Props) {
+export default function SmartImage(props: Props) {
+  return <ImageWithFallback key={props.src ?? "empty"} {...props} />;
+}
+
+function ImageWithFallback({ src, alt, className = "", eager = false }: Props) {
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLImageElement>(null);
 
@@ -20,8 +24,6 @@ export default function SmartImage({ src, alt, className = "", eager = false }: 
     const img = ref.current;
     if (img && img.complete && img.naturalWidth === 0) setFailed(true);
   }, []);
-
-  useEffect(() => setFailed(false), [src]);
 
   if (!src || failed) {
     return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import { api } from "@/lib/client";
 import { ORDER_STATUSES, STATUS_LABELS } from "@/lib/constants";
@@ -19,8 +19,6 @@ export default function OrderStatusSelect({
   const toast = useToast();
   const [value, setValue] = useState(status);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => setValue(status), [status]);
 
   async function change(next: string) {
     const previous = value;
@@ -41,7 +39,7 @@ export default function OrderStatusSelect({
     <select
       value={value}
       onChange={(e) => change(e.target.value)}
-      disabled={busy || status === "cancelled"}
+      disabled={busy || status === "cancelled" || status === "delivered"}
       aria-label={`حالة الطلب ${number}`}
       className="field w-36 py-1.5 text-sm"
     >

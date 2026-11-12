@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -14,7 +16,7 @@ import { OrderStatusBadge } from "@/components/Badges";
 import LogoutButton from "@/components/LogoutButton";
 import PasswordForm from "@/components/PasswordForm";
 import { Money } from "@/components/Price";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { orders, users, wishlistItems } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getCart } from "@/lib/cart";
@@ -27,11 +29,10 @@ export default async function AccountPage() {
   if (!user) redirect("/login?next=/account");
 
   const [[profile], [{ n: orderCount }], [{ n: wishCount }], [latest], cart] = await Promise.all([
-    db.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, user.id)).limit(1),
-    db.select({ n: count() }).from(orders).where(eq(orders.userId, user.id)),
-    db.select({ n: count() }).from(wishlistItems).where(eq(wishlistItems.userId, user.id)),
-    db
-      .select({
+    getDb().select({ createdAt: users.createdAt }).from(users).where(eq(users.id, user.id)).limit(1),
+    getDb().select({ n: count() }).from(orders).where(eq(orders.userId, user.id)),
+    getDb().select({ n: count() }).from(wishlistItems).where(eq(wishlistItems.userId, user.id)),
+    getDb().select({
         id: orders.id,
         number: orders.number,
         status: orders.status,
@@ -143,9 +144,7 @@ export default async function AccountPage() {
             ? "حسابك يدير المتجر كله — استخدم كلمة مرور قوية لا تستعملها في مكان آخر."
             : "غيّر كلمة المرور متى شئت؛ سيُسجَّل خروجك من الأجهزة الأخرى."}
         </p>
-        <div className="max-w-2xl">
-          <PasswordForm />
-        </div>
+        {user.role === "admin" ? <p className="text-sm text-muted">لتغيير كلمة مرور المدير، حدّث متغير ADMIN_PASSWORD في إعدادات الاستضافة ثم أعد النشر.</p> : <div className="max-w-2xl"><PasswordForm /></div>}
       </section>
     </div>
   );

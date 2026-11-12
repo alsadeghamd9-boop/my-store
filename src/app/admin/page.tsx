@@ -1,34 +1,34 @@
+export const dynamic = "force-dynamic";
+
+import { requireAdminPage } from "@/lib/admin-auth";
 import Link from "next/link";
-import { and, asc, count, desc, eq, lte, ne, notLike, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, lte, ne, sql } from "drizzle-orm";
 import { Boxes, ClipboardList, Users, Wallet } from "lucide-react";
 import { OrderStatusBadge } from "@/components/Badges";
 import { Money } from "@/components/Price";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { orders, products, users } from "@/db/schema";
 import { ORDER_STATUSES, STATUS_LABELS } from "@/lib/constants";
 import { formatCount, formatDate } from "@/lib/format";
 
 export default async function AdminDashboard() {
+  await requireAdminPage();
   const [[sales], [orderTotal], [productTotal], [customerTotal], lowStock, recent, byStatus] =
     await Promise.all([
-      db
-        .select({ total: sql<number>`coalesce(sum(${orders.total}), 0)::float8` })
+      getDb().select({ total: sql<number>`coalesce(sum(${orders.total}), 0)::float8` })
         .from(orders)
         .where(ne(orders.status, "cancelled")),
-      db.select({ n: count() }).from(orders),
-      db.select({ n: count() }).from(products).where(eq(products.active, true)),
-      db
-        .select({ n: count() })
+      getDb().select({ n: count() }).from(orders),
+      getDb().select({ n: count() }).from(products).where(eq(products.active, true)),
+      getDb().select({ n: count() })
         .from(users)
-        .where(and(eq(users.role, "customer"), notLike(users.email, "%@seed.qafila.store"))),
-      db
-        .select({ id: products.id, title: products.title, stock: products.stock })
+        .where(eq(users.role, "customer")),
+      getDb().select({ id: products.id, title: products.title, stock: products.stock })
         .from(products)
         .where(and(eq(products.active, true), lte(products.stock, 5)))
         .orderBy(asc(products.stock))
         .limit(8),
-      db
-        .select({
+      getDb().select({
           id: orders.id,
           number: orders.number,
           total: orders.total,
@@ -39,16 +39,16 @@ export default async function AdminDashboard() {
         .from(orders)
         .orderBy(desc(orders.createdAt))
         .limit(6),
-      db.select({ status: orders.status, n: count() }).from(orders).groupBy(orders.status),
+      getDb().select({ status: orders.status, n: count() }).from(orders).groupBy(orders.status),
     ]);
 
   const statusCount = new Map(byStatus.map((r) => [r.status, r.n]));
   const stats = [
     {
       icon: Wallet,
-      label: "إجمالي المبيعات",
+      label: "إجمالي الطلبات",
       value: <Money value={sales.total} />,
-      note: "لا يشمل الطلبات الملغاة",
+      note: "يشمل الطلبات غير المدفوعة، ولا يشمل الملغاة",
     },
     {
       icon: ClipboardList,

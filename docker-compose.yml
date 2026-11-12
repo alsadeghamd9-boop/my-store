@@ -1,21 +1,15 @@
-# استضافة كاملة بأمر واحد: المتجر + قاعدة بيانات PostgreSQL
-#
-#   ADMIN_PASSWORD='كلمة-مرور-قوية' POSTGRES_PASSWORD='كلمة-أخرى' docker compose up -d --build
-#
-# ثم افتح http://localhost:3000
-
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: qafila
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?حدّد POSTGRES_PASSWORD}
-      POSTGRES_DB: qafila
+      POSTGRES_USER: souq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: souq
     volumes:
-      - qafila_db:/var/lib/postgresql/data
+      - souq_db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U qafila -d qafila"]
+      test: ["CMD-SHELL", "pg_isready -U souq -d souq"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -27,13 +21,16 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://qafila:${POSTGRES_PASSWORD}@db:5432/qafila
-      # كلمة مرور حساب المدير admin@qafila.store عند أول تشغيل
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?حدّد ADMIN_PASSWORD}
-      # اختياري: بريد خدمة العملاء الذي يظهر في صفحة المساعدة
+      DATABASE_URL: postgresql://souq:${POSTGRES_PASSWORD}@db:5432/souq
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      SEED_SAMPLE_DATA: ${SEED_SAMPLE_DATA:-false}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
     ports:
       - "3000:3000"
 
 volumes:
-  qafila_db:
+  souq_db:

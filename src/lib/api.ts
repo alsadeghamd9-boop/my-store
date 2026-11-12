@@ -8,12 +8,27 @@ export function fail(message: string, status = 400, extra?: Record<string, unkno
   return NextResponse.json({ error: message, ...extra }, { status });
 }
 
+/** Reject cross-origin browser mutations, including multipart uploads. */
+export function isSameOrigin(req: Request) {
+  if (req.headers.get("sec-fetch-site") === "cross-site") return false;
+  const origin = req.headers.get("origin");
+  if (!origin) return true; // Non-browser clients do not necessarily send Origin.
+  try {
+    const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? new URL(req.url).host).split(",")[0].trim();
+    const protocol = (req.headers.get("x-forwarded-proto") ?? new URL(req.url).protocol.replace(":", "")).split(",")[0].trim();
+    return new URL(origin).origin === `${protocol}://${host}`;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Mutating endpoints only accept JSON bodies. Browsers cannot send
  * `application/json` cross-site without a CORS preflight (which we never
  * approve), so this doubles as CSRF protection for cookie-authenticated calls.
  */
 export async function readJson(req: Request): Promise<Record<string, unknown> | null> {
+  if (!isSameOrigin(req)) return null;
   const type = (req.headers.get("content-type") ?? "").toLowerCase();
   if (!type.includes("application/json")) return null;
   try {

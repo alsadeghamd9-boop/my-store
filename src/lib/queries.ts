@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { and, asc, desc, eq, gte, lte, ne, sql, type SQL } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { categories, products, reviews, users, wishlistItems } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import type { SortKey } from "@/lib/constants";
@@ -38,7 +38,7 @@ export type ProductCardData = {
 
 export const getCategories = cache(async () => {
   await ensureSeeded();
-  return db.select().from(categories).orderBy(asc(categories.sort), asc(categories.id));
+  return getDb().select().from(categories).orderBy(asc(categories.sort), asc(categories.id));
 });
 
 /** Fold common Arabic spelling variants so "ساعه" finds "ساعة". */
@@ -120,22 +120,20 @@ export async function listProducts(f: ProductFilters = {}) {
   const pageSize = f.pageSize ?? 12;
   const page = Math.max(1, f.page ?? 1);
   const [items, [{ n }]] = await Promise.all([
-    db
-      .select(cardFields)
+    getDb().select(cardFields)
       .from(products)
       .where(where)
       .orderBy(...order)
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    db.select({ n: sql<number>`count(*)::int` }).from(products).where(where),
+    getDb().select({ n: sql<number>`count(*)::int` }).from(products).where(where),
   ]);
   return { items, total: n, page, pageSize, pages: Math.max(1, Math.ceil(n / pageSize)) };
 }
 
 export const getProductBySlug = cache(async (slug: string) => {
   await ensureSeeded();
-  const rows = await db
-    .select({ product: products, categoryName: categories.name, categorySlug: categories.slug })
+  const rows = await getDb().select({ product: products, categoryName: categories.name, categorySlug: categories.slug })
     .from(products)
     .innerJoin(categories, eq(categories.id, products.categoryId))
     .where(and(eq(products.slug, slug), eq(products.active, true)))
@@ -144,8 +142,7 @@ export const getProductBySlug = cache(async (slug: string) => {
 });
 
 export async function getRelatedProducts(categoryId: number, excludeId: number, limit = 6) {
-  return db
-    .select(cardFields)
+  return getDb().select(cardFields)
     .from(products)
     .where(
       and(eq(products.active, true), eq(products.categoryId, categoryId), ne(products.id, excludeId)),
@@ -157,16 +154,14 @@ export async function getRelatedProducts(categoryId: number, excludeId: number, 
 export const getWishlistIds = cache(async (): Promise<Set<number>> => {
   const user = await getCurrentUser();
   if (!user) return new Set();
-  const rows = await db
-    .select({ productId: wishlistItems.productId })
+  const rows = await getDb().select({ productId: wishlistItems.productId })
     .from(wishlistItems)
     .where(eq(wishlistItems.userId, user.id));
   return new Set(rows.map((r) => r.productId));
 });
 
 export async function getProductReviews(productId: number) {
-  return db
-    .select({
+  return getDb().select({
       id: reviews.id,
       userId: reviews.userId,
       rating: reviews.rating,
@@ -191,8 +186,7 @@ export async function getProductReviews(productId: number) {
 }
 
 export async function getRatingHistogram(productId: number) {
-  const rows = await db
-    .select({ rating: reviews.rating, n: sql<number>`count(*)::int` })
+  const rows = await getDb().select({ rating: reviews.rating, n: sql<number>`count(*)::int` })
     .from(reviews)
     .where(eq(reviews.productId, productId))
     .groupBy(reviews.rating);
@@ -202,7 +196,7 @@ export async function getRatingHistogram(productId: number) {
 }
 
 export async function recomputeRating(productId: number) {
-  await db.execute(sql`
+  await getDb().execute(sql`
     update products set
       rating_avg = coalesce((select avg(rating)::real from reviews where product_id = ${productId}), 0),
       rating_count = (select count(*)::int from reviews where product_id = ${productId})

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -6,7 +8,7 @@ import { ChevronLeft, Package } from "lucide-react";
 import { OrderStatusBadge } from "@/components/Badges";
 import { Money } from "@/components/Price";
 import SmartImage from "@/components/SmartImage";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { orderItems, orders } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate, itemsLabel } from "@/lib/format";
@@ -17,14 +19,12 @@ export default async function OrdersPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/orders");
 
-  const list = await db
-    .select()
+  const list = await getDb().select()
     .from(orders)
     .where(eq(orders.userId, user.id))
     .orderBy(desc(orders.createdAt));
   const items = list.length
-    ? await db
-        .select()
+    ? await getDb().select()
         .from(orderItems)
         .where(
           inArray(

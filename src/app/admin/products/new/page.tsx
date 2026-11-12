@@ -1,7 +1,11 @@
+export const dynamic = "force-dynamic";
+
+import { requireAdminPage } from "@/lib/admin-auth";
 import ProductForm from "@/components/admin/ProductForm";
 import { getCategories } from "@/lib/queries";
 
 export default async function NewProductPage() {
+  await requireAdminPage();
   const cats = await getCategories();
   return (
     <section aria-labelledby="new-product">
@@ -19,7 +23,7 @@ export default async function NewProductPage() {
           stock: "10",
           description: "",
           features: "",
-          images: "",
+          images: [],
           isDeal: false,
           express: false,
         }}

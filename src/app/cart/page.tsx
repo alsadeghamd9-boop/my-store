@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ShoppingCart, Truck } from "lucide-react";
 import CartLineItem from "@/components/CartLineItem";
 import { Money } from "@/components/Price";
-import { getCurrentUser } from "@/lib/auth";
 import { getCart } from "@/lib/cart";
 import { FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
 import { itemsLabel } from "@/lib/format";
@@ -11,7 +12,7 @@ import { itemsLabel } from "@/lib/format";
 export const metadata: Metadata = { title: "سلة التسوق" };
 
 export default async function CartPage() {
-  const [cart, user] = await Promise.all([getCart(), getCurrentUser()]);
+  const cart = await getCart();
 
   if (cart.lines.length === 0) {
     return (
@@ -78,7 +79,7 @@ export default async function CartPage() {
 
           <ul className="card divide-y divide-line">
             {cart.lines.map((line) => (
-              <CartLineItem key={line.productId} line={line} />
+              <CartLineItem key={`${line.productId}-${line.quantity}`} line={line} />
             ))}
           </ul>
         </div>
@@ -112,7 +113,6 @@ export default async function CartPage() {
                 </dd>
               </div>
             </dl>
-            <p className="mt-2 text-xs text-muted">الأسعار شاملة ضريبة القيمة المضافة.</p>
 
             {cart.hasIssues ? (
               <>
@@ -128,11 +128,6 @@ export default async function CartPage() {
                 <Link href="/checkout" className="btn btn-primary mt-5 w-full py-3 text-base">
                   إتمام الطلب
                 </Link>
-                {!user && (
-                  <p className="mt-2 text-xs leading-relaxed text-muted">
-                    سنطلب منك تسجيل الدخول أو إنشاء حساب، وستبقى سلتك كما هي.
-                  </p>
-                )}
               </>
             )}
             <Link

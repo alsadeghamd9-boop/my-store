@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { asc, eq, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { cartItems, products } from "@/db/schema";
 import { CART_COOKIE, cookieOptions, getCurrentUser } from "@/lib/auth";
 import { MAX_QTY, shippingFor } from "@/lib/constants";
@@ -58,8 +58,7 @@ export const getCart = cache(async (): Promise<Cart> => {
   const key = await getOwnerKey();
   if (!key) return EMPTY;
   await ensureSeeded();
-  const rows = await db
-    .select({
+  const rows = await getDb().select({
       productId: products.id,
       slug: products.slug,
       title: products.title,
@@ -115,12 +114,12 @@ export async function mergeGuestCart(userId: number) {
   if (!guest || !/^[a-f0-9]{32}$/.test(guest)) return;
   const guestKey = `g:${guest}`;
   const userKey = `u:${userId}`;
-  await db.execute(sql`
+  await getDb().execute(sql`
     insert into cart_items (owner_key, product_id, quantity)
     select ${userKey}, product_id, quantity from cart_items where owner_key = ${guestKey}
     on conflict (owner_key, product_id)
     do update set quantity = least(cart_items.quantity + excluded.quantity, ${MAX_QTY})
   `);
-  await db.delete(cartItems).where(eq(cartItems.ownerKey, guestKey));
+  await getDb().delete(cartItems).where(eq(cartItems.ownerKey, guestKey));
   jar.set(CART_COOKIE, "", await cookieOptions(0));
 }

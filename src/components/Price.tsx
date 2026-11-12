@@ -31,7 +31,7 @@ export default function Price({
   );
 }
 
-/** Inline amount for tables and summaries, e.g. "1,299.00 ر.س". */
+/** Inline amount for tables and summaries, e.g. "1,299.00 ج.س". */
 export function Money({ value, className = "" }: { value: number; className?: string }) {
   return (
     <span className={`whitespace-nowrap ${className}`}>

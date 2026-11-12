@@ -1,13 +1,9 @@
-import { getCurrentUser, readSessionId } from "@/lib/auth";
-import { getCart, getWishlist } from "@/db/queries";
+import { getCurrentUser } from "@/lib/auth";
+import { getCart } from "@/lib/cart";
+import { getWishlistIds } from "@/lib/queries";
 import { ok } from "@/lib/api";
-
 export const dynamic = "force-dynamic";
-
 export async function GET() {
-  const user = await getCurrentUser();
-  const sessionId = await readSessionId();
-  const cart = await getCart(sessionId);
-  const wishlist = await getWishlist(sessionId);
-  return ok({ user, cartCount: cart.count, wishlistCount: wishlist.length });
+  const [user, cart, wishlist] = await Promise.all([getCurrentUser(), getCart(), getWishlistIds()]);
+  return ok({ user, cartCount: cart.count, wishlistCount: wishlist.size });
 }

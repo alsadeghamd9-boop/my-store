@@ -1,10 +1,12 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { Heart } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { products, wishlistItems } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { itemsLabel } from "@/lib/format";
@@ -16,8 +18,7 @@ export default async function WishlistPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/wishlist");
 
-  const items = await db
-    .select(cardFields)
+  const items = await getDb().select(cardFields)
     .from(wishlistItems)
     .innerJoin(products, eq(products.id, wishlistItems.productId))
     .where(and(eq(wishlistItems.userId, user.id), eq(products.active, true)))

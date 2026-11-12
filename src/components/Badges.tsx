@@ -7,7 +7,7 @@ export function ExpressBadge({ className = "" }: { className?: string }) {
       className={`inline-flex items-center gap-1 rounded-md bg-express/10 px-1.5 py-0.5 text-xs font-semibold text-express ${className}`}
     >
       <Zap size={12} fill="currentColor" strokeWidth={0} aria-hidden="true" />
-      إكسبرس
+      مميز
     </span>
   );
 }

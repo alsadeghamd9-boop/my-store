@@ -1,25 +1,10 @@
 import Link from "next/link";
 
-/** Wordmark with a small "trail to a destination" mark. */
-export default function Logo({ className = "" }: { className?: string }) {
-  return (
-    <Link
-      href="/"
-      aria-label="قافلة — الصفحة الرئيسية"
-      className={`inline-flex shrink-0 items-center gap-2 rounded-lg text-white ${className}`}
-    >
-      <svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
-        <rect width="32" height="32" rx="9" fill="#f7a600" />
-        <path
-          d="M6 22c3.5-9.5 7.5-9.5 10-4.5s6 4.5 9.5-6"
-          stroke="#0b2a2f"
-          strokeWidth="2.6"
-          fill="none"
-          strokeLinecap="round"
-        />
-        <circle cx="25.5" cy="10.5" r="2.4" fill="#0b2a2f" />
-      </svg>
-      <span className="font-display text-2xl leading-none font-extrabold tracking-tight">قافلة</span>
-    </Link>
-  );
+export default function Logo({ light = false, className = "" }: { light?: boolean; className?: string }) {
+  return <Link href="/" aria-label="سوق السودان — الصفحة الرئيسية" className={`inline-flex shrink-0 items-center gap-2.5 rounded-lg ${light ? "text-white" : "text-ink-900"} ${className}`}>
+    <span className={`grid size-10 place-items-center rounded-xl ${light ? "bg-white/10" : "bg-ink-900"}`}>
+      <svg viewBox="0 0 40 40" className="size-8" fill="none" aria-hidden="true"><path d="M8 18.5 20 10l12 8.5M11.5 18.5V30h17V18.5M17 30v-7.5a3 3 0 0 1 6 0V30" stroke="#f4e7d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 14.5h22" stroke="#d8a577" strokeWidth="2" strokeLinecap="round"/></svg>
+    </span>
+    <span className="flex flex-col"><span className="font-display text-[19px] leading-tight font-bold tracking-tight">سوق السودان</span><span className={`mt-1 text-[9px] font-semibold tracking-[.18em] ${light ? "text-white/60" : "text-terracotta"}`} dir="ltr">SOUQ AL SUDAN</span></span>
+  </Link>;
 }

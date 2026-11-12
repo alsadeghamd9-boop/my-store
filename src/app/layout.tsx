@@ -15,15 +15,15 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
-    default: "قافلة — كل ما تحتاجه يصل إلى بابك",
-    template: "%s | قافلة",
+    default: "سوق السودان — من بلدنا ليك",
+    template: "%s | سوق السودان",
   },
   description:
-    "متجر قافلة الإلكتروني: إلكترونيات، جوالات، أزياء، مستلزمات المنزل والمزيد، مع توصيل سريع ودفع عند الاستلام.",
+    "سوق السودان: اختيارات متنوعة من المنتجات، مع توصيل لجميع ولايات السودان وطرق دفع تناسبك.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b2a2f",
+  themeColor: "#21473b",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

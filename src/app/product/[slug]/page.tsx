@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,7 +14,7 @@ import SectionHeader from "@/components/SectionHeader";
 import Stars from "@/components/Stars";
 import { getCurrentUser } from "@/lib/auth";
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/constants";
-import { discountPercent, formatCount, formatDate, formatDay } from "@/lib/format";
+import { discountPercent, formatCount, formatDate } from "@/lib/format";
 import {
   getProductBySlug,
   getProductReviews,
@@ -48,7 +50,6 @@ export default async function ProductPage({ params }: Params) {
   const inStock = p.stock > 0;
   const mine = user ? reviewList.find((r) => r.userId === user.id) : undefined;
   const freeShipping = p.price >= FREE_SHIPPING_THRESHOLD;
-  const tomorrow = new Date(Date.now() + 86400_000);
 
   return (
     <div className="container-page py-5">
@@ -64,7 +65,7 @@ export default async function ProductPage({ params }: Params) {
           </li>
           <li>
             <Link
-              href={`/search?category=${row.categorySlug}`}
+              href={`/categories/${row.categorySlug}`}
               className="rounded hover:text-ink-950 hover:underline"
             >
               {row.categoryName}
@@ -124,7 +125,7 @@ export default async function ProductPage({ params }: Params) {
                 <Money value={p.listPrice - p.price} className="font-semibold text-deal" />
               </p>
             )}
-            <p className="mt-1.5 text-xs text-muted">السعر شامل ضريبة القيمة المضافة.</p>
+            <p className="mt-1.5 text-xs text-muted">السعر بالجنيه السوداني.</p>
           </div>
 
           <p className="mt-4 leading-relaxed text-body">{p.description}</p>
@@ -152,14 +153,8 @@ export default async function ProductPage({ params }: Params) {
               <li className="flex items-start gap-2.5">
                 <Truck size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-700" />
                 <span>
-                  {p.express ? (
-                    <>
-                      <ExpressBadge className="me-1.5" />
-                      يصلك غداً، <span className="font-semibold">{formatDay(tomorrow)}</span>
-                    </>
-                  ) : (
-                    <>التوصيل خلال 2–4 أيام عمل</>
-                  )}
+                  التوصيل متاح لجميع ولايات السودان
+                  {p.express && <ExpressBadge className="ms-2" />}
                   <span className="mt-0.5 block text-muted">
                     {freeShipping ? (
                       "توصيل مجاني لهذا المنتج"
@@ -174,11 +169,11 @@ export default async function ProductPage({ params }: Params) {
               </li>
               <li className="flex items-start gap-2.5">
                 <Banknote size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-700" />
-                الدفع عند الاستلام متاح
+                الدفع عند الاستلام أو عبر التحويل والمحافظ
               </li>
               <li className="flex items-start gap-2.5">
                 <RotateCcw size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-700" />
-                إرجاع خلال 15 يوماً من الاستلام
+                تواصل معنا للاستفسار عن الإرجاع والاستبدال
               </li>
             </ul>
 
@@ -195,7 +190,7 @@ export default async function ProductPage({ params }: Params) {
             </div>
 
             <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
-              يُباع ويُشحن بواسطة قافلة.
+              من سوق السودان إليك بكل محبة.
             </p>
           </div>
         </aside>

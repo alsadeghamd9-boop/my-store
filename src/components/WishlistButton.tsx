@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Heart } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
 import { api } from "@/lib/client";
@@ -12,14 +12,16 @@ type Props = {
   variant?: "icon" | "full";
 };
 
-export default function WishlistButton({ productId, initialSaved, variant = "icon" }: Props) {
+export default function WishlistButton(props: Props) {
+  return <WishlistButtonInner key={`${props.productId}-${props.initialSaved}`} {...props} />;
+}
+
+function WishlistButtonInner({ productId, initialSaved, variant = "icon" }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const toast = useToast();
   const [saved, setSaved] = useState(initialSaved);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => setSaved(initialSaved), [initialSaved]);
 
   async function toggle() {
     if (busy) return;

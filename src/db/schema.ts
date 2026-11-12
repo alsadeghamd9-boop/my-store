@@ -53,7 +53,7 @@ export const products = pgTable(
     features: jsonb("features").$type<string[]>().notNull().default([]),
     specs: jsonb("specs").$type<ProductSpec[]>().notNull().default([]),
     images: jsonb("images").$type<string[]>().notNull().default([]),
-    // Money is stored in halalas (1 SAR = 100) to avoid float rounding.
+    // Money is stored in piastres (1 SDG = 100) to avoid float rounding.
     price: integer("price").notNull(),
     listPrice: integer("list_price"),
     categoryId: integer("category_id")
@@ -105,14 +105,17 @@ export const orders = pgTable(
   {
     id: serial("id").primaryKey(),
     number: text("number").notNull().unique(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
+    userId: integer("user_id").references(() => users.id),
+    guestAccessHash: text("guest_access_hash"),
     status: text("status").notNull().default("pending"),
     subtotal: integer("subtotal").notNull(),
     shippingFee: integer("shipping_fee").notNull().default(0),
     total: integer("total").notNull(),
     paymentMethod: text("payment_method").notNull().default("cod"),
+    paymentProvider: text("payment_provider").notNull().default(""),
+    paymentReference: text("payment_reference").notNull().default(""),
+    paymentStatus: text("payment_status").notNull().default("pending"),
+    shipState: text("ship_state").notNull().default(""),
     shipName: text("ship_name").notNull(),
     shipPhone: text("ship_phone").notNull(),
     shipCity: text("ship_city").notNull(),
@@ -157,6 +160,17 @@ export const reviews = pgTable(
   },
   (t) => [uniqueIndex("reviews_product_user_idx").on(t.productId, t.userId)],
 );
+
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
+export const loginAttempts = pgTable("login_attempts", {
+  key: text("key").primaryKey(),
+  attempts: integer("attempts").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
 
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;

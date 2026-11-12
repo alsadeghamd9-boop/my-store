@@ -14,9 +14,9 @@ export type ProductInput = {
   express: boolean;
 };
 
-function toHalalas(value: unknown): number | null {
+function toPiastres(value: unknown): number | null {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  if (!Number.isFinite(n) || n <= 0 || n > 1_000_000) return null;
+  if (!Number.isFinite(n) || n < 0.01 || n > 20_000_000) return null;
   return Math.round(n * 100);
 }
 
@@ -28,7 +28,7 @@ function stringList(value: unknown, maxItems: number, maxLen: number) {
     .slice(0, maxItems);
 }
 
-/** Validates the admin product form. Prices arrive in SAR and are stored in halalas. */
+/** Validates the admin product form. Prices arrive in SDG and are stored in piastres. */
 export function parseProductInput(
   body: Record<string, unknown>,
 ): { data: ProductInput; fields?: undefined } | { data?: undefined; fields: Record<string, string> } {
@@ -37,12 +37,12 @@ export function parseProductInput(
   const title = str(body.title, 160);
   if (title.length < 3) fields.title = "اكتب اسماً للمنتج (3 أحرف على الأقل).";
 
-  const price = toHalalas(body.price);
+  const price = toPiastres(body.price);
   if (price == null) fields.price = "اكتب سعراً صحيحاً أكبر من صفر.";
 
   let listPrice: number | null = null;
   if (body.listPrice !== "" && body.listPrice != null) {
-    listPrice = toHalalas(body.listPrice);
+    listPrice = toPiastres(body.listPrice);
     if (listPrice == null) fields.listPrice = "اكتب رقماً صحيحاً أو اترك الحقل فارغاً.";
     else if (price != null && listPrice <= price)
       fields.listPrice = "السعر قبل الخصم يجب أن يكون أعلى من السعر الحالي.";
@@ -55,9 +55,9 @@ export function parseProductInput(
   if (stock == null || stock < 0 || stock > 100_000) fields.stock = "اكتب كمية صحيحة (0 أو أكثر).";
 
   const images = stringList(body.images, 6, 600);
-  if (images.length === 0) fields.images = "أضف رابط صورة واحداً على الأقل.";
-  else if (images.some((u) => !/^(https?:\/\/|\/)\S+$/.test(u)))
-    fields.images = "كل سطر يجب أن يكون رابط صورة يبدأ بـ https:// أو /.";
+  if (images.length === 0) fields.images = "ارفع صورة واحدة على الأقل.";
+  else if (images.some((u) => !/^(https:\/\/|\/(?!\/))\S+$/.test(u)))
+    fields.images = "تعذّر التحقق من الصور المرفوعة.";
 
   if (Object.keys(fields).length) return { fields };
 

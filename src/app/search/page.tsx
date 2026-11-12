@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -14,11 +16,11 @@ type SP = Record<string, string | string[] | undefined>;
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-/** Whole-riyal price filter value from the URL. */
-function riyals(v: string) {
+/** Whole-SDG price filter value from the URL. */
+function pounds(v: string) {
   if (v.trim() === "") return undefined;
   const n = Number(v);
-  return Number.isFinite(n) && n >= 0 && n <= 1_000_000 ? Math.round(n) : undefined;
+  return Number.isFinite(n) && n >= 0 && n <= 20_000_000 ? Math.round(n) : undefined;
 }
 
 export async function generateMetadata({
@@ -72,8 +74,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   const q = first(sp.q).trim().slice(0, 80);
   const category = cats.find((c) => c.slug === first(sp.category));
-  const min = riyals(first(sp.min));
-  const max = riyals(first(sp.max));
+  const min = pounds(first(sp.min));
+  const max = pounds(first(sp.max));
   const ratingRaw = Number(first(sp.rating));
   const rating = ratingRaw === 3 || ratingRaw === 4 ? ratingRaw : undefined;
   const express = first(sp.express) === "1";
@@ -125,7 +127,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       : deal
         ? "عروض اليوم"
         : express
-          ? "منتجات إكسبرس"
+          ? "منتجات مميزة"
           : "كل المنتجات";
 
   const chips: { label: string; href: string }[] = [];
@@ -134,14 +136,14 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   if (min != null || max != null) {
     const label =
       min != null && max != null
-        ? `${min} – ${max} ر.س`
+        ? `${min} – ${max} ج.س`
         : min != null
-          ? `من ${min} ر.س`
-          : `حتى ${max} ر.س`;
+          ? `من ${min} ج.س`
+          : `حتى ${max} ج.س`;
     chips.push({ label, href: href({ min: undefined, max: undefined }) });
   }
   if (rating) chips.push({ label: `${rating} نجوم فأكثر`, href: href({ rating: undefined }) });
-  if (express) chips.push({ label: "إكسبرس", href: href({ express: undefined }) });
+  if (express) chips.push({ label: "منتجات مميزة", href: href({ express: undefined }) });
   if (deal) chips.push({ label: "عروض اليوم", href: href({ deal: undefined }) });
 
   const filters = (
@@ -165,7 +167,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       </section>
 
       <section>
-        <h3 className="mb-2 text-sm font-bold text-ink-950">السعر (ر.س)</h3>
+        <h3 className="mb-2 text-sm font-bold text-ink-950">السعر (ج.س)</h3>
         <form key={`${min ?? ""}-${max ?? ""}`} action="/search" className="flex items-end gap-2">
           {Object.entries(current)
             .filter(([k]) => k !== "min" && k !== "max")
@@ -224,12 +226,12 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
         <ul>
           <li>
             <Option href={href({ express: express ? undefined : "1" })} active={express}>
-              توصيل إكسبرس (اليوم التالي)
+              منتجات مميزة
             </Option>
           </li>
           <li>
             <Option href={href({ deal: deal ? undefined : "1" })} active={deal}>
-              عروض اليوم فقط
+              عروض خاصة
             </Option>
           </li>
         </ul>

@@ -4,18 +4,14 @@ import { useState, type FormEvent } from "react";
 import { Eye, EyeOff, Info, LoaderCircle } from "lucide-react";
 import { api } from "@/lib/client";
 
-type Demo = { label: string; email: string; password: string };
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function AuthForm({
   mode,
   next,
-  demo = [],
 }: {
   mode: "login" | "register";
   next: string;
-  demo?: Demo[];
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -161,35 +157,6 @@ export default function AuthForm({
         {register ? "إنشاء الحساب" : "تسجيل الدخول"}
       </button>
 
-      {demo.length > 0 && (
-        <div className="rounded-xl bg-paper p-3.5">
-          <p className="text-sm font-semibold text-ink-950">حسابات تجريبية جاهزة</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted">
-            اختر حساباً لتعبئة الحقول، ثم اضغط «تسجيل الدخول».
-          </p>
-          <ul className="mt-3 space-y-2">
-            {demo.map((d) => (
-              <li key={d.email}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail(d.email);
-                    setPassword(d.password);
-                    setErrors({});
-                    setFormError("");
-                  }}
-                  className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-line bg-white px-3 py-2 text-start text-sm hover:border-ink-700"
-                >
-                  <span className="font-semibold text-ink-950">{d.label}</span>
-                  <span dir="ltr" className="text-xs text-muted">
-                    {d.email} · {d.password}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </form>
   );
 }

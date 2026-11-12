@@ -1,36 +1,16 @@
 import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { ensureBootstrap } from "@/db/bootstrap";
+import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { fail, ok, readJson, toStringValue } from "@/lib/api";
-
+import { BAD_REQUEST, fail, ok, readJson, str } from "@/lib/api";
 export const dynamic = "force-dynamic";
-
 export async function PATCH(req: Request) {
-  await ensureBootstrap();
   const user = await getCurrentUser();
-  if (!user) return fail("يجب تسجيل الدخول", 401);
-
+  if (!user) return fail("يجب تسجيل الدخول.", 401);
   const body = await readJson(req);
-  const name = toStringValue(body.name);
-  const phone = toStringValue(body.phone);
-  const city = toStringValue(body.city);
-  const address = toStringValue(body.address);
-
-  const patch: Partial<typeof users.$inferInsert> = {};
-  if (name.length >= 2) patch.name = name;
-  if (body.phone !== undefined) patch.phone = phone || null;
-  if (body.city !== undefined) patch.city = city || null;
-  if (body.address !== undefined) patch.address = address || null;
-
-  if (Object.keys(patch).length === 0) return fail("لا توجد تغييرات لحفظها");
-
-  const [updated] = await db
-    .update(users)
-    .set(patch)
-    .where(eq(users.id, user.id))
-    .returning({ id: users.id, name: users.name, email: users.email, phone: users.phone, city: users.city, address: users.address, role: users.role });
-
-  return ok({ user: updated });
+  if (!body) return fail(BAD_REQUEST);
+  const name = str(body.name, 60);
+  if (name.length < 2) return fail("اكتب الاسم، حرفين على الأقل.", 422);
+  await getDb().update(users).set({ name }).where(eq(users.id, user.id));
+  return ok({ user: { ...user, name } });
 }

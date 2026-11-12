@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { products, reviews } from "@/db/schema";
 import { BAD_REQUEST, fail, int, ok, readJson, str } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
@@ -22,15 +24,13 @@ export async function POST(req: Request) {
   if (text.length < 10) fields.body = "اكتب رأيك في 10 أحرف على الأقل.";
   if (Object.keys(fields).length) return fail("راجع الحقول المشار إليها.", 422, { fields });
 
-  const [product] = await db
-    .select({ id: products.id })
+  const [product] = await getDb().select({ id: products.id })
     .from(products)
     .where(and(eq(products.id, productId), eq(products.active, true)))
     .limit(1);
   if (!product) return fail("هذا المنتج لم يعد متوفراً.", 404);
 
-  await db
-    .insert(reviews)
+  await getDb().insert(reviews)
     .values({ productId, userId: user.id, rating: rating!, title, body: text })
     .onConflictDoUpdate({
       target: [reviews.productId, reviews.userId],
@@ -49,8 +49,7 @@ export async function DELETE(req: Request) {
   const user = await getCurrentUser();
   if (!user) return fail("سجّل الدخول أولاً.", 401);
 
-  await db
-    .delete(reviews)
+  await getDb().delete(reviews)
     .where(and(eq(reviews.productId, productId), eq(reviews.userId, user.id)));
   await recomputeRating(productId);
   return ok({ ok: true });

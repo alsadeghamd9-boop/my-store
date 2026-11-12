@@ -1,18 +1,22 @@
+export const dynamic = "force-dynamic";
+
+import { requireAdminPage } from "@/lib/admin-auth";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import ProductForm from "@/components/admin/ProductForm";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { products } from "@/db/schema";
 import { getCategories } from "@/lib/queries";
 
-const sar = (halalas: number) => String(halalas / 100);
+const sdg = (piastres: number) => String(piastres / 100);
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPage();
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
   const [[product], cats] = await Promise.all([
-    db.select().from(products).where(eq(products.id, id)).limit(1),
+    getDb().select().from(products).where(eq(products.id, id)).limit(1),
     getCategories(),
   ]);
   if (!product) notFound();
@@ -34,12 +38,12 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
           title: product.title,
           brand: product.brand,
           categoryId: String(product.categoryId),
-          price: sar(product.price),
-          listPrice: product.listPrice ? sar(product.listPrice) : "",
+          price: sdg(product.price),
+          listPrice: product.listPrice ? sdg(product.listPrice) : "",
           stock: String(product.stock),
           description: product.description,
           features: product.features.join("\n"),
-          images: product.images.join("\n"),
+          images: product.images,
           isDeal: product.isDeal,
           express: product.express,
         }}

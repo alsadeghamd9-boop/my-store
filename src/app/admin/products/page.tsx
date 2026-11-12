@@ -1,16 +1,20 @@
+export const dynamic = "force-dynamic";
+
+import { requireAdminPage } from "@/lib/admin-auth";
 import Link from "next/link";
 import { asc, desc, eq } from "drizzle-orm";
 import { Pencil, Plus } from "lucide-react";
 import ArchiveButton from "@/components/admin/ArchiveButton";
+import DeleteButton from "@/components/admin/DeleteButton";
 import { Money } from "@/components/Price";
 import SmartImage from "@/components/SmartImage";
-import { db } from "@/db";
+import { getDb } from "@/db";
 import { categories, products } from "@/db/schema";
 import { formatCount } from "@/lib/format";
 
 export default async function AdminProductsPage() {
-  const rows = await db
-    .select({
+  await requireAdminPage();
+  const rows = await getDb().select({
       id: products.id,
       slug: products.slug,
       title: products.title,
@@ -133,6 +137,7 @@ export default async function AdminProductsPage() {
                       تعديل
                     </Link>
                     <ArchiveButton productId={p.id} active={p.active} />
+                    <DeleteButton url={`/api/admin/products/${p.id}`} label="حذف" confirmation="حذف المنتج نهائياً؟ ستبقى بياناته في الطلبات السابقة." />
                   </div>
                 </td>
               </tr>

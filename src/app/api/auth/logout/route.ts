@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { BAD_REQUEST, fail, ok, readJson } from "@/lib/api";
 import { destroySession } from "@/lib/auth";
 
